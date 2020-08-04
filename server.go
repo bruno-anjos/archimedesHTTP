@@ -3082,8 +3082,7 @@ func logf(r *Request, format string, args ...interface{}) {
 // TODO ARCHIMEDES HTTP CLIENT CHANGED THIS METHOD
 func ListenAndServe(addr string, handler originalHttp.Handler) error {
 	go archimedes.SendHeartbeatInstanceToArchimedes(archimedes.DefaultHostPort)
-	handlerCasted := handler.(Handler)
-	server := &Server{Addr: addr, Handler: handlerCasted}
+	server := &originalHttp.Server{Addr: addr, Handler: handler}
 	return server.ListenAndServe()
 }
 
