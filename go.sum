@@ -5,6 +5,7 @@ github.com/bruno-anjos/scheduler v0.0.0-20200730160240-da949fb91af9/go.mod h1:dr
 github.com/bruno-anjos/solution-utils v0.0.0-20200729140846-0b732b78eb19/go.mod h1:S6fgSBlp7Qfd/nQGCR8y+xpnpkB2qz8iiQ9ggsQZPQs=
 github.com/bruno-anjos/solution-utils v0.0.0-20200803160206-562c9f14e46c h1:nXC7x1KT7w6aTLdpWd39aqZ0hynoQBdHXiEfHqCfZVw=
 github.com/bruno-anjos/solution-utils v0.0.0-20200803160206-562c9f14e46c/go.mod h1:gcb0Ei5ecFs8PGKbC10vJTslG0r+gem3iTtOi7cfhwY=
+github.com/bruno-anjos/solution-utils v0.0.0-20200803160423-4cf841cde3d3/go.mod h1:gcb0Ei5ecFs8PGKbC10vJTslG0r+gem3iTtOi7cfhwY=
 github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/docker/distribution v2.7.1+incompatible/go.mod h1:J2gT2udsDAN96Uj4KfcMRqY0/ypR+oyYUYmja8H+y+w=

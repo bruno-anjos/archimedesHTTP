@@ -19,6 +19,7 @@ import (
 	"io/ioutil"
 	"math/rand"
 	"net"
+	originalHttp "net/http"
 	"net/url"
 	"sort"
 	"strings"
@@ -398,7 +399,7 @@ func Get(url string) (resp *Response, err error) {
 //
 // To make a request with custom headers, use NewRequest and Client.Do.
 func (c *Client) Get(url string) (resp *Response, err error) {
-	req, err := NewRequest("GET", url, nil)
+	req, err := originalHttp.NewRequest("GET", url, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -513,14 +514,49 @@ func urlErrorOp(method string) string {
 // value's Timeout method will report true if request timed out or was
 // canceled.
 // TODO ARCHIMEDES HTTP CLIENT CHANGED THIS METHOD
-func (c *Client) Do(req *Request) (*Response, error) {
+func (c *Client) Do(req *originalHttp.Request) (*Response, error) {
 	resolvedHostPort, err := c.resolveServiceInArchimedes(req.RemoteAddr)
 	if err != nil {
 		panic(err)
 	}
 
 	req.RemoteAddr = resolvedHostPort
-	return c.do(req)
+
+	reqHeaderCasted := Header{}
+	for k, v := range req.Header {
+		reqHeaderCasted[k] = v
+	}
+
+	reqTrailerCasted := Header{}
+	for k, v := range req.Trailer {
+		reqTrailerCasted[k] = v
+	}
+
+	reqCasted := &Request{
+		Method:           req.Method,
+		URL:              req.URL,
+		Proto:            req.Proto,
+		ProtoMajor:       req.ProtoMajor,
+		ProtoMinor:       req.ProtoMinor,
+		Header:           reqHeaderCasted,
+		Body:             req.Body,
+		GetBody:          req.GetBody,
+		ContentLength:    req.ContentLength,
+		TransferEncoding: req.TransferEncoding,
+		Close:            req.Close,
+		Host:             req.Host,
+		Form:             req.Form,
+		PostForm:         req.PostForm,
+		MultipartForm:    req.MultipartForm,
+		Trailer:          reqTrailerCasted,
+		RemoteAddr:       req.RemoteAddr,
+		RequestURI:       req.RequestURI,
+		TLS:              req.TLS,
+		Cancel:           req.Cancel,
+		Response:         nil,
+	}
+
+	return c.do(reqCasted)
 }
 
 // TODO ARCHIMEDES HTTP CLIENT CHANGED THIS METHOD
@@ -530,7 +566,7 @@ func (c *Client) resolveServiceInArchimedes(hostPort string) (resolvedHostPort s
 		panic(err)
 	}
 
-	archReq, err := NewRequest(MethodPost, archimedes.DefaultHostPort+archimedes.GetServicePath(host), nil)
+	archReq, err := originalHttp.NewRequest(MethodPost, archimedes.DefaultHostPort+archimedes.GetServicePath(host), nil)
 	if err != nil {
 		panic(err)
 	}
@@ -585,7 +621,7 @@ func (c *Client) resolveInstanceInArchimedes(hostPort string) (resolvedHostPort 
 		panic(err)
 	}
 
-	archReq, err := NewRequest(MethodPost, archimedes.DefaultHostPort+archimedes.GetInstancePath(host), nil)
+	archReq, err := originalHttp.NewRequest(MethodPost, archimedes.DefaultHostPort+archimedes.GetInstancePath(host), nil)
 	if err != nil {
 		panic(err)
 	}
@@ -879,7 +915,7 @@ func Post(url, contentType string, body io.Reader) (resp *Response, err error) {
 // See the Client.Do method documentation for details on how redirects
 // are handled.
 func (c *Client) Post(url, contentType string, body io.Reader) (resp *Response, err error) {
-	req, err := NewRequest("POST", url, body)
+	req, err := originalHttp.NewRequest("POST", url, body)
 	if err != nil {
 		return nil, err
 	}
@@ -944,7 +980,7 @@ func Head(url string) (resp *Response, err error) {
 //    307 (Temporary Redirect)
 //    308 (Permanent Redirect)
 func (c *Client) Head(url string) (resp *Response, err error) {
-	req, err := NewRequest("HEAD", url, nil)
+	req, err := originalHttp.NewRequest("HEAD", url, nil)
 	if err != nil {
 		return nil, err
 	}

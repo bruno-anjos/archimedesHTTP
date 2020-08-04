@@ -29,6 +29,7 @@ import (
 	"time"
 	"log"
 
+originalHttp "net/http"
 
 	archimedes "github.com/bruno-anjos/archimedes/api"
 	"golang.org/x/net/http/httpguts"
@@ -3079,9 +3080,10 @@ func logf(r *Request, format string, args ...interface{}) {
 //
 // ListenAndServe always returns a non-nil error.
 // TODO ARCHIMEDES HTTP CLIENT CHANGED THIS METHOD
-func ListenAndServe(addr string, handler Handler) error {
+func ListenAndServe(addr string, handler originalHttp.Handler) error {
 	go archimedes.SendHeartbeatInstanceToArchimedes(archimedes.DefaultHostPort)
-	server := &Server{Addr: addr, Handler: handler}
+	handlerCasted := handler.(Handler)
+	server := &Server{Addr: addr, Handler: handlerCasted}
 	return server.ListenAndServe()
 }
 
