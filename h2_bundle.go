@@ -32,7 +32,7 @@ import (
 	"math"
 	mathrand "math/rand"
 	"net"
-	http "github.com/bruno-anjos/archimedesHTTPClient"/httptrace"
+	"github.com/bruno-anjos/archimedesHTTPClient/httptrace"
 	"net/textproto"
 	"net/url"
 	"os"
