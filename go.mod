@@ -11,6 +11,6 @@ require (
 )
 
 replace (
-	github.com/bruno-anjos/archimedes v0.0.0-20200804140801-448f3fb725ac => ./../archimedes
+	github.com/bruno-anjos/archimedes v0.0.0-20200804141312-804b5d680b4d => ./../archimedes
 	github.com/bruno-anjos/solution-utils v0.0.0-20200804140242-989a419bda22 => ./../solution-utils
 )
