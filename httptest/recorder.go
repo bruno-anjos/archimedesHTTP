@@ -8,7 +8,7 @@ import (
 	"bytes"
 	"fmt"
 	"io/ioutil"
-	"net/http"
+	http "github.com/bruno-anjos/archimedesHTTPClient"
 	"strconv"
 	"strings"
 

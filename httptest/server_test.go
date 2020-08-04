@@ -8,7 +8,7 @@ import (
 	"bufio"
 	"io/ioutil"
 	"net"
-	"net/http"
+	http "github.com/bruno-anjos/archimedesHTTPClient"
 	"testing"
 )
 

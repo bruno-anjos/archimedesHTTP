@@ -20,7 +20,7 @@ import (
 	"io"
 	"log"
 	"net"
-	"net/http/httptrace"
+	"github.com/bruno-anjos/archimedesHTTPClient/httptrace"
 	"net/textproto"
 	"net/url"
 	"os"

@@ -9,8 +9,8 @@ import (
 	"io"
 	"io/ioutil"
 	"log"
-	"net/http"
-	"net/http/httptest"
+	http "github.com/bruno-anjos/archimedesHTTPClient"
+	"github.com/bruno-anjos/archimedesHTTPClient/httptest"
 )
 
 func ExampleResponseRecorder() {

@@ -7,7 +7,7 @@ package http_test
 import (
 	"fmt"
 	"log"
-	"net/http"
+	http "github.com/bruno-anjos/archimedesHTTPClient"
 	"sync"
 )
 

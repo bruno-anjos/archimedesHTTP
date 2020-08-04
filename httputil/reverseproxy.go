@@ -12,7 +12,7 @@ import (
 	"io"
 	"log"
 	"net"
-	"net/http"
+	http "github.com/bruno-anjos/archimedesHTTPClient"
 	"net/url"
 	"strings"
 	"sync"

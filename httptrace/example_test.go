@@ -7,8 +7,9 @@ package httptrace_test
 import (
 	"fmt"
 	"log"
-	"net/http"
-	"net/http/httptrace"
+
+	http "github.com/bruno-anjos/archimedesHTTPClient"
+	"github.com/bruno-anjos/archimedesHTTPClient/httptrace"
 )
 
 func Example() {

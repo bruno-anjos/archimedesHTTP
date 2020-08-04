@@ -8,9 +8,9 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
-	"net/http"
-	"net/http/httptest"
-	"net/http/httputil"
+	http "github.com/bruno-anjos/archimedesHTTPClient"
+	"github.com/bruno-anjos/archimedesHTTPClient/httptest"
+	"github.com/bruno-anjos/archimedesHTTPClient/httputil"
 	"net/url"
 	"strings"
 )

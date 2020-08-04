@@ -13,7 +13,7 @@ import (
 	"go/token"
 	"io"
 	"io/ioutil"
-	"net/http/internal"
+	"github.com/bruno-anjos/archimedesHTTPClient/internal"
 	"net/url"
 	"reflect"
 	"regexp"

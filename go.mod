@@ -5,6 +5,8 @@ go 1.13
 require (
 	github.com/bruno-anjos/archimedes v0.0.0-20200731153328-0fb213b05ee7
 	github.com/bruno-anjos/solution-utils v0.0.0-20200803160206-562c9f14e46c
+	github.com/docker/go-connections v0.4.0
+	golang.org/x/net v0.0.0-20200707034311-ab3426394381
 )
 
 replace (

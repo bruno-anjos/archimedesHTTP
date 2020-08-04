@@ -9,7 +9,7 @@ import (
 	"errors"
 	"io"
 	"io/ioutil"
-	"net/http"
+	http "github.com/bruno-anjos/archimedesHTTPClient"
 	"testing"
 )
 

@@ -20,7 +20,7 @@ import (
 	"io"
 	"log"
 	"net"
-	"net/http"
+	http "github.com/bruno-anjos/archimedesHTTPClient"
 	"os"
 	"os/exec"
 	"path/filepath"

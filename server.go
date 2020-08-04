@@ -27,8 +27,8 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+	"log"
 
-	log "github.com/sirupsen/logrus"
 
 	archimedes "github.com/bruno-anjos/archimedes/api"
 	"golang.org/x/net/http/httpguts"

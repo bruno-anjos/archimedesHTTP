@@ -9,7 +9,7 @@ import (
 	"errors"
 	"io"
 	"net"
-	"net/http"
+	http "github.com/bruno-anjos/archimedesHTTPClient"
 	"net/textproto"
 	"sync"
 )

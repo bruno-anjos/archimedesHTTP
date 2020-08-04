@@ -7,8 +7,8 @@ package pprof
 import (
 	"bytes"
 	"io/ioutil"
-	"net/http"
-	"net/http/httptest"
+	http "github.com/bruno-anjos/archimedesHTTPClient"
+	"github.com/bruno-anjos/archimedesHTTPClient/httptest"
 	"runtime/pprof"
 	"testing"
 )

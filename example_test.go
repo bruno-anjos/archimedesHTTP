@@ -10,7 +10,7 @@ import (
 	"io"
 	"io/ioutil"
 	"log"
-	"net/http"
+	http "github.com/bruno-anjos/archimedesHTTPClient"
 	"os"
 	"os/signal"
 )

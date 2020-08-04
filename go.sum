@@ -1,13 +1,9 @@
 github.com/Microsoft/go-winio v0.4.14/go.mod h1:qXqCSQ3Xa7+6tgxaGTIe4Kpcdsi+P8jBhyzoq1bpyYA=
 github.com/bruno-anjos/archimedes v0.0.0-20200730121306-72009db0eaa7/go.mod h1:Wo12C7KYQz+Mer0eq1kZMd9uE3HTWqHERHyMOeyAKvE=
-github.com/bruno-anjos/archimedes v0.0.0-20200731153328-0fb213b05ee7 h1:sUk1CBTWbMj6ubtXs9Qq2sUN+f868m9Hbhj3B15aRXQ=
-github.com/bruno-anjos/archimedes v0.0.0-20200731153328-0fb213b05ee7/go.mod h1:ragxs+8yKbXkRwM0fl5h07uq+Kcy+pdqVVF0NGJwjZU=
 github.com/bruno-anjos/archimedesHTTPClient v0.0.0-20200731165616-9aa4edba78b5/go.mod h1:yXzI3IH6yNelEGD7qD21aYxj32498A9ffcFI62f++vA=
 github.com/bruno-anjos/scheduler v0.0.0-20200730160240-da949fb91af9/go.mod h1:drx12yzkdMh2iQfv3+tkajahCqBLBzT9reQseNs9skE=
 github.com/bruno-anjos/solution-utils v0.0.0-20200729140846-0b732b78eb19/go.mod h1:S6fgSBlp7Qfd/nQGCR8y+xpnpkB2qz8iiQ9ggsQZPQs=
-github.com/bruno-anjos/solution-utils v0.0.0-20200730160126-4bddd1152617 h1:bo3Cgs62Y18+SWX+UT22GCz+4jDIAm0iMbamxR348es=
-github.com/bruno-anjos/solution-utils v0.0.0-20200730160126-4bddd1152617/go.mod h1:S6fgSBlp7Qfd/nQGCR8y+xpnpkB2qz8iiQ9ggsQZPQs=
-github.com/bruno-anjos/solution-utils v0.0.0-20200731153528-f4f5b5285b7d/go.mod h1:S6fgSBlp7Qfd/nQGCR8y+xpnpkB2qz8iiQ9ggsQZPQs=
+github.com/bruno-anjos/solution-utils v0.0.0-20200803160206-562c9f14e46c h1:nXC7x1KT7w6aTLdpWd39aqZ0hynoQBdHXiEfHqCfZVw=
 github.com/bruno-anjos/solution-utils v0.0.0-20200803160206-562c9f14e46c/go.mod h1:gcb0Ei5ecFs8PGKbC10vJTslG0r+gem3iTtOi7cfhwY=
 github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
@@ -28,7 +24,6 @@ github.com/pkg/errors v0.9.1/go.mod h1:bwawxfHBFNV+L2hUp1rHADufV3IMtnDRdf1r5NINE
 github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZbAQM=
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
 github.com/sirupsen/logrus v1.4.1/go.mod h1:ni0Sbl8bgC9z8RoU9G6nDWqqs/fq4eDPysMBDgk/93Q=
-github.com/sirupsen/logrus v1.6.0 h1:UBcNElsrwanuuMsnGSlYmtmgbb23qDR5dG+6X6Oo89I=
 github.com/sirupsen/logrus v1.6.0/go.mod h1:7uNnSEd1DgxDLC74fIahvMZmmYsHGZGEOFrfsX/uA88=
 github.com/stretchr/objx v0.1.1/go.mod h1:HFkY916IF+rwdDfMAkV7OtwuqBVzrE8GR6GFx+wExME=
 github.com/stretchr/testify v1.2.2 h1:bSDNvY7ZPG5RlJ8otE/7V6gMiyenm9RtJ7IUVIAoJ1w=
@@ -36,6 +31,7 @@ github.com/stretchr/testify v1.2.2/go.mod h1:a8OnRcib4nhh0OaRAV+Yts87kKdq0PP7pXf
 golang.org/x/crypto v0.0.0-20190308221718-c2843e01d9a2/go.mod h1:djNgcEr1/C05ACkg1iLfiJU5Ep61QUkGW8qpdssI0+w=
 golang.org/x/crypto v0.0.0-20200622213623-75b288015ac9/go.mod h1:LzIPMQfyMNhhGPhUkYOs5KpL4U8rLKemX1yGLhDgUto=
 golang.org/x/net v0.0.0-20190404232315-eb5bcb51f2a3/go.mod h1:t9HGtf8HONx5eT2rtn7q6eTqICYqUVnKs3thJo3Qplg=
+golang.org/x/net v0.0.0-20200707034311-ab3426394381 h1:VXak5I6aEWmAXeQjA+QSZzlgNrpq9mjcfDemuexIKsU=
 golang.org/x/net v0.0.0-20200707034311-ab3426394381/go.mod h1:/O7V0waA8r7cgGh81Ro3o1hOxt32SMVPicZroKQ2sZA=
 golang.org/x/sys v0.0.0-20180905080454-ebe1bf3edb33/go.mod h1:STP8DvDyc/dI5b8T5hshtkjS+E42TnysNCUPdjciGhY=
 golang.org/x/sys v0.0.0-20190215142949-d0b11bdaac8a/go.mod h1:STP8DvDyc/dI5b8T5hshtkjS+E42TnysNCUPdjciGhY=
@@ -44,4 +40,5 @@ golang.org/x/sys v0.0.0-20190422165155-953cdadca894/go.mod h1:h1NjWce9XRLGQEsW7w
 golang.org/x/sys v0.0.0-20190507160741-ecd444e8653b/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
 golang.org/x/sys v0.0.0-20200323222414-85ca7c5b95cd h1:xhmwyvizuTgC2qz7ZlMluP20uW+C3Rm0FD/WLDX8884=
 golang.org/x/sys v0.0.0-20200323222414-85ca7c5b95cd/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
+golang.org/x/text v0.3.0 h1:g61tztE5qeGQ89tm6NTjjM9VPIm088od1l6aSorWRWg=
 golang.org/x/text v0.3.0/go.mod h1:NqM8EUOU14njkJ3fqMW+pc6Ldnwhi/IjpwHt7yyuwOQ=

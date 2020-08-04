@@ -19,7 +19,7 @@ import (
 	"mime"
 	"mime/multipart"
 	"net"
-	"net/http/httptrace"
+	"github.com/bruno-anjos/archimedesHTTPClient/httptrace"
 	"net/textproto"
 	"net/url"
 	"strconv"

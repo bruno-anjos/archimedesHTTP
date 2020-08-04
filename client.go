@@ -19,18 +19,16 @@ import (
 	"io/ioutil"
 	"math/rand"
 	"net"
-	"net/http"
 	"net/url"
 	"sort"
 	"strings"
 	"sync"
 	"time"
 
-	log "github.com/sirupsen/logrus"
-
 	archimedes "github.com/bruno-anjos/archimedes/api"
-	generic_utils "github.com/bruno-anjos/solution-utils"
+	genericutils "github.com/bruno-anjos/solution-utils"
 	"github.com/docker/go-connections/nat"
+	log "github.com/sirupsen/logrus"
 )
 
 // A Client is an HTTP client. Its zero value (DefaultClient) is a
@@ -542,14 +540,14 @@ func (c *Client) resolveServiceInArchimedes(hostPort string) (resolvedHostPort s
 		panic(err)
 	}
 
-	if resp.StatusCode == http.StatusNotFound {
+	if resp.StatusCode == StatusNotFound {
 		log.Debugf("could not resolve service %s", hostPort)
 		resolvedHostPort, err = c.resolveInstanceInArchimedes(hostPort)
 		if err != nil {
 			return "", err
 		}
 		return resolvedHostPort, nil
-	} else if resp.StatusCode != http.StatusOK {
+	} else if resp.StatusCode != StatusOK {
 		return "", errors.New(
 			fmt.Sprintf("got status %d while resolving %s in archimedes", resp.StatusCode, hostPort))
 	}
@@ -560,7 +558,7 @@ func (c *Client) resolveServiceInArchimedes(hostPort string) (resolvedHostPort s
 		panic(err)
 	}
 
-	portWithProto, err := nat.NewPort(generic_utils.TCP, port)
+	portWithProto, err := nat.NewPort(genericutils.TCP, port)
 	if err != nil {
 		panic(err)
 	}
@@ -597,10 +595,10 @@ func (c *Client) resolveInstanceInArchimedes(hostPort string) (resolvedHostPort 
 		panic(err)
 	}
 
-	if resp.StatusCode == http.StatusNotFound {
+	if resp.StatusCode == StatusNotFound {
 		log.Debugf("could not resolve instance %s", hostPort)
 		return hostPort, nil
-	} else if resp.StatusCode != http.StatusOK {
+	} else if resp.StatusCode != StatusOK {
 		return "", errors.New(
 			fmt.Sprintf("got status %d while resolving %s in archimedes", resp.StatusCode, hostPort))
 	}
@@ -611,7 +609,7 @@ func (c *Client) resolveInstanceInArchimedes(hostPort string) (resolvedHostPort 
 		panic(err)
 	}
 
-	portWithProto, err := nat.NewPort(generic_utils.TCP, port)
+	portWithProto, err := nat.NewPort(genericutils.TCP, port)
 	if err != nil {
 		panic(err)
 	}

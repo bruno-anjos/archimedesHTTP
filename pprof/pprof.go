@@ -58,7 +58,7 @@ import (
 	"html/template"
 	"io"
 	"log"
-	"net/http"
+	http "github.com/bruno-anjos/archimedesHTTPClient"
 	"os"
 	"runtime"
 	"runtime/pprof"

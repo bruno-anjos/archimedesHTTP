@@ -12,8 +12,8 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	. "net/http"
-	"net/http/httptest"
+	. "github.com/bruno-anjos/archimedesHTTPClient"
+	"github.com/bruno-anjos/archimedesHTTPClient/httptest"
 	"strings"
 	"testing"
 )

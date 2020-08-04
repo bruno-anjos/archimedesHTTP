@@ -13,7 +13,7 @@ import (
 	"fmt"
 	"io"
 	"log"
-	"net/http"
+	http "github.com/bruno-anjos/archimedesHTTPClient"
 	"os"
 	"os/exec"
 	"strconv"

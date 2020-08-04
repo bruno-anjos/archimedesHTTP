@@ -15,7 +15,7 @@ import (
 	"io"
 	"io/ioutil"
 	"net"
-	"net/http"
+	http "github.com/bruno-anjos/archimedesHTTPClient"
 	"net/url"
 	"os"
 	"strconv"
