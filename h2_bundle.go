@@ -32,6 +32,7 @@ import (
 	"math"
 	mathrand "math/rand"
 	"net"
+	originalHttp "net/http"
 	"net/http/httptrace"
 	"net/textproto"
 	"net/url"
@@ -44,8 +45,6 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
-
-	originalHttp "net/http"
 
 	"golang.org/x/net/http/httpguts"
 	"golang.org/x/net/http2/hpack"
@@ -690,7 +689,7 @@ func http2isBadCipher(cipher uint16) bool {
 
 // ClientConnPool manages a pool of HTTP/2 client connections.
 type http2ClientConnPool interface {
-	GetClientConn(req *Request, addr string) (*http2ClientConn, error)
+	GetClientConn(req *originalHttp.Request, addr string) (*http2ClientConn, error)
 	MarkDead(*http2ClientConn)
 }
 
@@ -719,7 +718,7 @@ type http2clientConnPool struct {
 	addConnCalls map[string]*http2addConnCall // in-flight addConnIfNeede calls
 }
 
-func (p *http2clientConnPool) GetClientConn(req *Request, addr string) (*http2ClientConn, error) {
+func (p *http2clientConnPool) GetClientConn(req *originalHttp.Request, addr string) (*http2ClientConn, error) {
 	return p.getClientConn(req, addr, http2dialOnMiss)
 }
 
@@ -749,7 +748,7 @@ func (p *http2clientConnPool) shouldTraceGetConn(st http2clientConnIdleState) bo
 	return !st.freshConn
 }
 
-func (p *http2clientConnPool) getClientConn(req *Request, addr string, dialOnMiss bool) (*http2ClientConn, error) {
+func (p *http2clientConnPool) getClientConn(req *originalHttp.Request, addr string, dialOnMiss bool) (*http2ClientConn, error) {
 	if http2isConnectionCloseRequest(req) && dialOnMiss {
 		// It gets its own connection.
 		http2traceGetConn(req, addr)
@@ -953,7 +952,7 @@ func http2filterOutClientConn(in []*http2ClientConn, exclude *http2ClientConn) [
 // connection instead.
 type http2noDialClientConnPool struct{ *http2clientConnPool }
 
-func (p http2noDialClientConnPool) GetClientConn(req *Request, addr string) (*http2ClientConn, error) {
+func (p http2noDialClientConnPool) GetClientConn(req *originalHttp.Request, addr string) (*http2ClientConn, error) {
 	return p.getClientConn(req, addr, http2noDialOnMiss)
 }
 
@@ -3838,7 +3837,7 @@ func http2ConfigureServer(s *Server, conf *http2Server) error {
 	}
 
 	if s.TLSNextProto == nil {
-		s.TLSNextProto = map[string]func(*Server, *tls.Conn, Handler){}
+		s.TLSNextProto = map[string]func(*Server, *tls.Conn, originalHttp.Handler){}
 	}
 	protoHandler := func(hs *Server, c *tls.Conn, h originalHttp.Handler) {
 		if http2testHookOnConn != nil {
@@ -3879,7 +3878,7 @@ type http2ServeConnOpts struct {
 	// Handler specifies which handler to use for processing
 	// requests. If nil, BaseConfig.Handler is used. If BaseConfig
 	// or BaseConfig.Handler is nil, http.DefaultServeMux is used.
-	Handler Handler
+	Handler originalHttp.Handler
 }
 
 func (o *http2ServeConnOpts) context() context.Context {
@@ -3896,7 +3895,7 @@ func (o *http2ServeConnOpts) baseConfig() *Server {
 	return new(Server)
 }
 
-func (o *http2ServeConnOpts) handler() Handler {
+func (o *http2ServeConnOpts) handler() originalHttp.Handler {
 	if o != nil {
 		if o.Handler != nil {
 			return o.Handler
@@ -4035,9 +4034,9 @@ func (s *http2Server) ServeConn(c net.Conn, opts *http2ServeConnOpts) {
 
 func http2serverConnBaseContext(c net.Conn, opts *http2ServeConnOpts) (ctx context.Context, cancel func()) {
 	ctx, cancel = context.WithCancel(opts.context())
-	ctx = context.WithValue(ctx, LocalAddrContextKey, c.LocalAddr())
+	ctx = context.WithValue(ctx, originalHttp.LocalAddrContextKey, c.LocalAddr())
 	if hs := opts.baseConfig(); hs != nil {
-		ctx = context.WithValue(ctx, ServerContextKey, hs)
+		ctx = context.WithValue(ctx, originalHttp.ServerContextKey, hs)
 	}
 	return
 }
@@ -4056,7 +4055,7 @@ type http2serverConn struct {
 	hs               *Server
 	conn             net.Conn
 	bw               *http2bufferedWriter // writing to conn
-	handler          Handler
+	handler          originalHttp.Handler
 	baseCtx          context.Context
 	framer           *http2Framer
 	doneServing      chan struct{}               // closed when serverConn.serve ends
@@ -4155,8 +4154,8 @@ type http2stream struct {
 	wroteHeaders     bool        // whether we wrote headers (not status 100)
 	writeDeadline    *time.Timer // nil if unused
 
-	trailer    Header // accumulated trailers
-	reqTrailer Header // handler's Request.Trailer
+	trailer    originalHttp.Header // accumulated trailers
+	reqTrailer originalHttp.Header // handler's Request.Trailer
 }
 
 func (sc *http2serverConn) Framer() *http2Framer { return sc.framer }
@@ -5422,7 +5421,7 @@ func (sc *http2serverConn) processHeaders(f *http2MetaHeadersFrame) error {
 	}
 	st.reqTrailer = req.Trailer
 	if st.reqTrailer != nil {
-		st.trailer = make(Header)
+		st.trailer = make(originalHttp.Header)
 	}
 	st.body = req.Body.(*http2requestBody).pipe // may be nil
 	st.declBodyBytes = req.ContentLength
@@ -5539,7 +5538,7 @@ func (sc *http2serverConn) newStream(id, pusherID uint32, state http2streamState
 	return st
 }
 
-func (sc *http2serverConn) newWriterAndRequest(st *http2stream, f *http2MetaHeadersFrame) (*http2responseWriter, *Request, error) {
+func (sc *http2serverConn) newWriterAndRequest(st *http2stream, f *http2MetaHeadersFrame) (*http2responseWriter, *originalHttp.Request, error) {
 	sc.serveG.check()
 
 	rp := http2requestParam{
@@ -5605,7 +5604,7 @@ type http2requestParam struct {
 	header                  Header
 }
 
-func (sc *http2serverConn) newWriterAndRequestNoBody(st *http2stream, rp http2requestParam) (*http2responseWriter, *Request, error) {
+func (sc *http2serverConn) newWriterAndRequestNoBody(st *http2stream, rp http2requestParam) (*http2responseWriter, *originalHttp.Request, error) {
 	sc.serveG.check()
 
 	var tlsState *tls.ConnectionState // nil if not scheme https
@@ -5687,11 +5686,11 @@ func (sc *http2serverConn) newWriterAndRequestNoBody(st *http2stream, rp http2re
 	rws.body = body
 
 	rw := &http2responseWriter{rws: rws}
-	return rw, req, nil
+	return rw, req.ToOriginalRequest(), nil
 }
 
 // Run on its own goroutine.
-func (sc *http2serverConn) runHandler(rw *http2responseWriter, req *Request, handler func(ResponseWriter, *Request)) {
+func (sc *http2serverConn) runHandler(rw *http2responseWriter, req *originalHttp.Request, handler func(originalHttp.ResponseWriter, *originalHttp.Request)) {
 	didPanic := true
 	defer func() {
 		rw.rws.stream.cancelCtx()
@@ -5716,7 +5715,7 @@ func (sc *http2serverConn) runHandler(rw *http2responseWriter, req *Request, han
 	didPanic = false
 }
 
-func http2handleHeaderListTooLong(w ResponseWriter, r *Request) {
+func http2handleHeaderListTooLong(w originalHttp.ResponseWriter, r *originalHttp.Request) {
 	// 10.5.1 Limits on Header Block Size:
 	// .. "A server that receives a larger header block than it is
 	// willing to handle can send an HTTP 431 (Request Header Fields Too
@@ -5891,9 +5890,9 @@ type http2responseWriter struct {
 
 // Optional http.ResponseWriter interfaces implemented.
 var (
-	_ CloseNotifier     = (*http2responseWriter)(nil)
-	_ Flusher           = (*http2responseWriter)(nil)
-	_ http2stringWriter = (*http2responseWriter)(nil)
+	_ originalHttp.CloseNotifier = (*http2responseWriter)(nil)
+	_ originalHttp.Flusher       = (*http2responseWriter)(nil)
+	_ http2stringWriter          = (*http2responseWriter)(nil)
 )
 
 type http2responseWriterState struct {
@@ -6154,7 +6153,7 @@ func (w *http2responseWriter) CloseNotify() <-chan bool {
 	return ch
 }
 
-func (w *http2responseWriter) Header() Header {
+func (w *http2responseWriter) Header() originalHttp.Header {
 	rws := w.rws
 	if rws == nil {
 		panic("Header called after Handler finished")
@@ -6162,7 +6161,7 @@ func (w *http2responseWriter) Header() Header {
 	if rws.handlerHeader == nil {
 		rws.handlerHeader = make(Header)
 	}
-	return rws.handlerHeader
+	return rws.handlerHeader.ToOriginalHeader()
 }
 
 // checkWriteHeaderCode is a copy of net/http's checkWriteHeaderCode.
@@ -6238,7 +6237,7 @@ func (w *http2responseWriter) write(lenData int, dataB []byte, dataS string) (n 
 		w.WriteHeader(200)
 	}
 	if !http2bodyAllowedForStatus(rws.status) {
-		return 0, ErrBodyNotAllowed
+		return 0, originalHttp.ErrBodyNotAllowed
 	}
 	rws.wroteBytes += int64(len(dataB)) + int64(len(dataS)) // only one can be set
 	if rws.sentContentLen != 0 && rws.wroteBytes > rws.sentContentLen {
@@ -6337,7 +6336,7 @@ func (w *http2responseWriter) Push(target string, opts *PushOptions) error {
 			return fmt.Errorf("promised request headers cannot include %q", k)
 		}
 	}
-	if err := http2checkValidHTTP2RequestHeaders(opts.Header); err != nil {
+	if err := http2checkValidHTTP2RequestHeaders(opts.Header.ToOriginalHeader()); err != nil {
 		return err
 	}
 
@@ -6493,7 +6492,7 @@ var http2connHeaders = []string{
 // checkValidHTTP2RequestHeaders checks whether h is a valid HTTP/2 request,
 // per RFC 7540 Section 8.1.2.2.
 // The returned error is reported to users.
-func http2checkValidHTTP2RequestHeaders(h Header) error {
+func http2checkValidHTTP2RequestHeaders(h originalHttp.Header) error {
 	for _, k := range http2connHeaders {
 		if _, ok := h[k]; ok {
 			return fmt.Errorf("request header %q is not valid in HTTP/2", k)
@@ -6506,8 +6505,8 @@ func http2checkValidHTTP2RequestHeaders(h Header) error {
 	return nil
 }
 
-func http2new400Handler(err error) HandlerFunc {
-	return func(w ResponseWriter, r *Request) {
+func http2new400Handler(err error) originalHttp.HandlerFunc {
+	return func(w originalHttp.ResponseWriter, r *originalHttp.Request) {
 		Error(w, err.Error(), StatusBadRequest)
 	}
 }
@@ -6647,7 +6646,7 @@ func http2configureTransport(t1 *Transport) (*http2Transport, error) {
 	if !http2strSliceContains(t1.TLSClientConfig.NextProtos, "http/1.1") {
 		t1.TLSClientConfig.NextProtos = append(t1.TLSClientConfig.NextProtos, "http/1.1")
 	}
-	upgradeFn := func(authority string, c *tls.Conn) RoundTripper {
+	upgradeFn := func(authority string, c *tls.Conn) originalHttp.RoundTripper {
 		addr := http2authorityAddr("https", authority)
 		if used, err := connPool.addConnIfNeeded(addr, t2, c); err != nil {
 			go c.Close()
@@ -6662,7 +6661,7 @@ func http2configureTransport(t1 *Transport) (*http2Transport, error) {
 		return t2
 	}
 	if m := t1.TLSNextProto; len(m) == 0 {
-		t1.TLSNextProto = map[string]func(string, *tls.Conn) RoundTripper{
+		t1.TLSNextProto = map[string]func(string, *tls.Conn) originalHttp.RoundTripper{
 			"h2": upgradeFn,
 		}
 	} else {
@@ -6735,7 +6734,7 @@ type http2ClientConn struct {
 // is created for each Transport.RoundTrip call.
 type http2clientStream struct {
 	cc            *http2ClientConn
-	req           *Request
+	req           *originalHttp.Request
 	trace         *httptrace.ClientTrace // or nil
 	ID            uint32
 	resc          chan http2resAndError
@@ -6769,7 +6768,7 @@ type http2clientStream struct {
 // awaitRequestCancel waits for the user to cancel a request or for the done
 // channel to be signaled. A non-nil error is returned only if the request was
 // canceled.
-func http2awaitRequestCancel(req *Request, done <-chan struct{}) error {
+func http2awaitRequestCancel(req *originalHttp.Request, done <-chan struct{}) error {
 	ctx := req.Context()
 	if req.Cancel == nil && ctx.Done() == nil {
 		return nil
@@ -6799,7 +6798,7 @@ func (cs *http2clientStream) get1xxTraceFunc() func(int, textproto.MIMEHeader) e
 // expire, or for the request to be done (any way it might be removed from the
 // cc.streams map: peer reset, successful completion, TCP connection breakage,
 // etc). If the request is canceled, then cs will be canceled and closed.
-func (cs *http2clientStream) awaitRequestCancel(req *Request) {
+func (cs *http2clientStream) awaitRequestCancel(req *originalHttp.Request) {
 	if err := http2awaitRequestCancel(req, cs.done); err != nil {
 		cs.cancelStream()
 		cs.bufPipe.CloseWithError(err)
@@ -6895,7 +6894,7 @@ type http2RoundTripOpt struct {
 	OnlyCachedConn bool
 }
 
-func (t *http2Transport) RoundTrip(req *Request) (*Response, error) {
+func (t *http2Transport) RoundTrip(req *originalHttp.Request) (*originalHttp.Response, error) {
 	return t.RoundTripOpt(req, http2RoundTripOpt{})
 }
 
@@ -6921,7 +6920,7 @@ func http2authorityAddr(scheme string, authority string) (addr string) {
 }
 
 // RoundTripOpt is like RoundTrip, but takes options.
-func (t *http2Transport) RoundTripOpt(req *Request, opt http2RoundTripOpt) (*Response, error) {
+func (t *http2Transport) RoundTripOpt(req *originalHttp.Request, opt http2RoundTripOpt) (*originalHttp.Response, error) {
 	if !(req.URL.Scheme == "https" || (req.URL.Scheme == "http" && t.AllowHTTP)) {
 		return nil, errors.New("http2: unsupported scheme")
 	}
@@ -6979,7 +6978,7 @@ var (
 // response headers. It is always called with a non-nil error.
 // It returns either a request to retry (either the same request, or a
 // modified clone), or an error if the request can't be replayed.
-func http2shouldRetryRequest(req *Request, err error, afterBodyWrite bool) (*Request, error) {
+func http2shouldRetryRequest(req *originalHttp.Request, err error, afterBodyWrite bool) (*originalHttp.Request, error) {
 	if !http2canRetryError(err) {
 		return nil, err
 	}
@@ -7389,7 +7388,7 @@ func (cc *http2ClientConn) putFrameScratchBuffer(buf []byte) {
 // exported. At least they'll be DeepEqual for h1-vs-h2 comparisons tests.
 var http2errRequestCanceled = errors.New("net/http: request canceled")
 
-func http2commaSeparatedTrailers(req *Request) (string, error) {
+func http2commaSeparatedTrailers(req *originalHttp.Request) (string, error) {
 	keys := make([]string, 0, len(req.Trailer))
 	for k := range req.Trailer {
 		k = CanonicalHeaderKey(k)
@@ -7420,7 +7419,7 @@ func (cc *http2ClientConn) responseHeaderTimeout() time.Duration {
 // checkConnHeaders checks whether req has any invalid connection-level headers.
 // per RFC 7540 section 8.1.2.2: Connection-Specific Header Fields.
 // Certain headers are special-cased as okay but not transmitted later.
-func http2checkConnHeaders(req *Request) error {
+func http2checkConnHeaders(req *originalHttp.Request) error {
 	if v := req.Header.Get("Upgrade"); v != "" {
 		return fmt.Errorf("http2: invalid Upgrade request header: %q", req.Header["Upgrade"])
 	}
@@ -7436,7 +7435,7 @@ func http2checkConnHeaders(req *Request) error {
 // actualContentLength returns a sanitized version of
 // req.ContentLength, where 0 actually means zero (not unknown) and -1
 // means unknown.
-func http2actualContentLength(req *Request) int64 {
+func http2actualContentLength(req *originalHttp.Request) int64 {
 	if req.Body == nil || req.Body == NoBody {
 		return 0
 	}
@@ -7446,12 +7445,12 @@ func http2actualContentLength(req *Request) int64 {
 	return -1
 }
 
-func (cc *http2ClientConn) RoundTrip(req *Request) (*Response, error) {
+func (cc *http2ClientConn) RoundTrip(req *originalHttp.Request) (*originalHttp.Response, error) {
 	resp, _, err := cc.roundTrip(req)
 	return resp, err
 }
 
-func (cc *http2ClientConn) roundTrip(req *Request) (res *Response, gotErrAfterReqBodyWrite bool, err error) {
+func (cc *http2ClientConn) roundTrip(req *originalHttp.Request) (res *originalHttp.Response, gotErrAfterReqBodyWrite bool, err error) {
 	if err := http2checkConnHeaders(req); err != nil {
 		return nil, false, err
 	}
@@ -7547,7 +7546,7 @@ func (cc *http2ClientConn) roundTrip(req *Request) (res *Response, gotErrAfterRe
 	bodyWritten := false
 	ctx := req.Context()
 
-	handleReadLoopResponse := func(re http2resAndError) (*Response, bool, error) {
+	handleReadLoopResponse := func(re http2resAndError) (*originalHttp.Response, bool, error) {
 		res := re.res
 		if re.err != nil || res.StatusCode > 299 {
 			// On error or status code 3xx, 4xx, 5xx, etc abort any
@@ -7566,9 +7565,9 @@ func (cc *http2ClientConn) roundTrip(req *Request) (res *Response, gotErrAfterRe
 			cc.forgetStreamID(cs.ID)
 			return nil, cs.getStartedWrite(), re.err
 		}
-		res.Request = req
+		res.Request = FromOriginalToCustomRequest(req)
 		res.TLS = cc.tlsState
-		return res, false, nil
+		return res.ToOriginalResponse(), false, nil
 	}
 
 	for {
@@ -7630,7 +7629,7 @@ func (cc *http2ClientConn) roundTrip(req *Request) (res *Response, gotErrAfterRe
 
 // awaitOpenSlotForRequest waits until len(streams) < maxConcurrentStreams.
 // Must hold cc.mu.
-func (cc *http2ClientConn) awaitOpenSlotForRequest(req *Request) error {
+func (cc *http2ClientConn) awaitOpenSlotForRequest(req *originalHttp.Request) error {
 	var waitingForConn chan struct{}
 	var waitingForConnErr error // guarded by cc.mu
 	for {
@@ -7856,7 +7855,7 @@ type http2badStringError struct {
 func (e *http2badStringError) Error() string { return fmt.Sprintf("%s %q", e.what, e.str) }
 
 // requires cc.mu be held.
-func (cc *http2ClientConn) encodeHeaders(req *Request, addGzipHeader bool, trailers string, contentLength int64) ([]byte, error) {
+func (cc *http2ClientConn) encodeHeaders(req *originalHttp.Request, addGzipHeader bool, trailers string, contentLength int64) ([]byte, error) {
 	cc.hbuf.Reset()
 
 	host := req.Host
@@ -7907,7 +7906,7 @@ func (cc *http2ClientConn) encodeHeaders(req *Request, addGzipHeader bool, trail
 		f(":authority", host)
 		m := req.Method
 		if m == "" {
-			m = MethodGet
+			m = originalHttp.MethodGet
 		}
 		f(":method", m)
 		if req.Method != "CONNECT" {
@@ -8015,7 +8014,7 @@ func http2shouldSendReqContentLength(method string, contentLength int64) bool {
 }
 
 // requires cc.mu be held.
-func (cc *http2ClientConn) encodeTrailers(req *Request) ([]byte, error) {
+func (cc *http2ClientConn) encodeTrailers(req *originalHttp.Request) ([]byte, error) {
 	cc.hbuf.Reset()
 
 	hlSize := uint64(0)
@@ -8895,7 +8894,9 @@ func http2strSliceContains(ss []string, s string) bool {
 
 type http2erringRoundTripper struct{ err error }
 
-func (rt http2erringRoundTripper) RoundTrip(*originalHttp.Request) (*originalHttp.Response, error) { return nil, rt.err }
+func (rt http2erringRoundTripper) RoundTrip(*originalHttp.Request) (*originalHttp.Response, error) {
+	return nil, rt.err
+}
 
 // gzipReader wraps a response body so it can lazily
 // call gzip.NewReader on the first call to Read
@@ -9008,7 +9009,7 @@ func (s http2bodyWriterState) scheduleBodyWrite() {
 
 // isConnectionCloseRequest reports whether req should use its own
 // connection for a single request and then close the connection.
-func http2isConnectionCloseRequest(req *Request) bool {
+func http2isConnectionCloseRequest(req *originalHttp.Request) bool {
 	return req.Close || httpguts.HeaderValuesContainsToken(req.Header["Connection"], "close")
 }
 
@@ -9030,10 +9031,10 @@ func http2registerHTTPSProtocol(t *Transport, rt http2noDialH2RoundTripper) (err
 // by TestNoDialH2RoundTripperType)
 type http2noDialH2RoundTripper struct{ *http2Transport }
 
-func (rt http2noDialH2RoundTripper) RoundTrip(req *Request) (*Response, error) {
+func (rt http2noDialH2RoundTripper) RoundTrip(req *originalHttp.Request) (*originalHttp.Response, error) {
 	res, err := rt.http2Transport.RoundTrip(req)
 	if http2isNoCachedConnError(err) {
-		return nil, ErrSkipAltProtocol
+		return nil, originalHttp.ErrSkipAltProtocol
 	}
 	return res, err
 }
@@ -9045,7 +9046,7 @@ func (t *http2Transport) idleConnTimeout() time.Duration {
 	return 0
 }
 
-func http2traceGetConn(req *Request, hostPort string) {
+func http2traceGetConn(req *originalHttp.Request, hostPort string) {
 	trace := httptrace.ContextClientTrace(req.Context())
 	if trace == nil || trace.GetConn == nil {
 		return
@@ -9053,7 +9054,7 @@ func http2traceGetConn(req *Request, hostPort string) {
 	trace.GetConn(hostPort)
 }
 
-func http2traceGotConn(req *Request, cc *http2ClientConn, reused bool) {
+func http2traceGotConn(req *originalHttp.Request, cc *http2ClientConn, reused bool) {
 	trace := httptrace.ContextClientTrace(req.Context())
 	if trace == nil || trace.GotConn == nil {
 		return

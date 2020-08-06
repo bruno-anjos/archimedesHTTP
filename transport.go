@@ -20,6 +20,7 @@ import (
 	"io"
 	"log"
 	"net"
+	originalHttp "net/http"
 	"net/http/httptrace"
 	"net/textproto"
 	"net/url"
@@ -227,7 +228,7 @@ type Transport struct {
 	// must return a RoundTripper that then handles the request.
 	// If TLSNextProto is not nil, HTTP/2 support is not enabled
 	// automatically.
-	TLSNextProto map[string]func(authority string, c *tls.Conn) RoundTripper
+	TLSNextProto map[string]func(authority string, c *tls.Conn) originalHttp.RoundTripper
 
 	// ProxyConnectHeader optionally specifies headers to send to
 	// proxies during CONNECT requests.
@@ -303,7 +304,7 @@ func (t *Transport) Clone() *Transport {
 		ReadBufferSize:         t.ReadBufferSize,
 	}
 	if !t.tlsNextProtoWasNil {
-		npm := map[string]func(authority string, c *tls.Conn) RoundTripper{}
+		npm := map[string]func(authority string, c *tls.Conn) originalHttp.RoundTripper{}
 		for k, v := range t.TLSNextProto {
 			npm[k] = v
 		}

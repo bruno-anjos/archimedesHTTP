@@ -180,7 +180,7 @@ func basicAuth(username, password string) string {
 //
 // To make a request with custom headers, use NewRequest and
 // DefaultClient.Do.
-func Get(url string) (resp *originalHttp.Response, err error) {
+func Get(url string) (resp *Response, err error) {
 	return DefaultClient.Get(url)
 }
 
@@ -204,8 +204,8 @@ func Get(url string) (resp *originalHttp.Response, err error) {
 // Caller should close resp.Body when done reading from it.
 //
 // To make a request with custom headers, use NewRequest and Client.Do.
-func (c *Client) Get(url string) (resp *originalHttp.Response, err error) {
-	req, err := originalHttp.NewRequest("GET", url, nil)
+func (c *Client) Get(url string) (resp *Response, err error) {
+	req, err := NewRequest("GET", url, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -250,24 +250,28 @@ func (c *Client) Get(url string) (resp *originalHttp.Response, err error) {
 // value's Timeout method will report true if request timed out or was
 // canceled.
 // TODO ARCHIMEDES HTTP CLIENT CHANGED THIS METHOD
-func (c *Client) Do(req *originalHttp.Request) (*originalHttp.Response, error) {
+func (c *Client) Do(req *Request) (*Response, error) {
 	resolvedHostPort, err := c.resolveServiceInArchimedes(req.RemoteAddr)
 	if err != nil {
 		panic(err)
 	}
 
 	req.RemoteAddr = resolvedHostPort
-	return c.originalHttpClient.Do(req)
+
+	resp, err := c.originalHttpClient.Do(req.ToOriginalRequest())
+
+	return FromOriginalToCustomResponse(resp), err
 }
 
 // TODO ARCHIMEDES HTTP CLIENT CHANGED THIS METHOD
 func (c *Client) resolveServiceInArchimedes(hostPort string) (resolvedHostPort string, err error) {
 	host, port, err := net.SplitHostPort(hostPort)
 	if err != nil {
+		log.Error("hostPort: ", hostPort)
 		panic(err)
 	}
 
-	archReq, err := originalHttp.NewRequest(originalHttp.MethodPost,
+	archReq, err := NewRequest(originalHttp.MethodPost,
 		archimedes.DefaultHostPort+archimedes.GetServicePath(host), nil)
 	if err != nil {
 		panic(err)
@@ -330,7 +334,7 @@ func (c *Client) resolveInstanceInArchimedes(hostPort string) (resolvedHostPort 
 		panic(err)
 	}
 
-	archReq, err := originalHttp.NewRequest(originalHttp.MethodPost, archimedes.DefaultHostPort+archimedes.GetInstancePath(host), nil)
+	archReq, err := NewRequest(originalHttp.MethodPost, archimedes.DefaultHostPort+archimedes.GetInstancePath(host), nil)
 	if err != nil {
 		panic(err)
 	}
@@ -460,8 +464,8 @@ func defaultCheckRedirect(_ *originalHttp.Request, via []*originalHttp.Request) 
 //
 // See the Client.Do method documentation for details on how redirects
 // are handled.
-func (c *Client) Post(url, contentType string, body io.Reader) (resp *originalHttp.Response, err error) {
-	req, err := originalHttp.NewRequest("POST", url, body)
+func (c *Client) Post(url, contentType string, body io.Reader) (resp *Response, err error) {
+	req, err := NewRequest("POST", url, body)
 	if err != nil {
 		return nil, err
 	}
@@ -480,7 +484,7 @@ func (c *Client) Post(url, contentType string, body io.Reader) (resp *originalHt
 //
 // See the Client.Do method documentation for details on how redirects
 // are handled.
-func (c *Client) PostForm(url string, data url.Values) (resp *originalHttp.Response, err error) {
+func (c *Client) PostForm(url string, data url.Values) (resp *Response, err error) {
 	return c.Post(url, "application/x-www-form-urlencoded", strings.NewReader(data.Encode()))
 }
 
@@ -493,8 +497,8 @@ func (c *Client) PostForm(url string, data url.Values) (resp *originalHttp.Respo
 //    303 (See Other)
 //    307 (Temporary Redirect)
 //    308 (Permanent Redirect)
-func (c *Client) Head(url string) (resp *originalHttp.Response, err error) {
-	req, err := originalHttp.NewRequest("HEAD", url, nil)
+func (c *Client) Head(url string) (resp *Response, err error) {
+	req, err := NewRequest("HEAD", url, nil)
 	if err != nil {
 		return nil, err
 	}
