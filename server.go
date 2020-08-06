@@ -15,7 +15,9 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"log"
 	"net"
+	originalHttp "net/http"
 	"net/textproto"
 	"net/url"
 	"os"
@@ -27,67 +29,10 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
-	"log"
-
-originalHttp "net/http"
 
 	archimedes "github.com/bruno-anjos/archimedes/api"
 	"golang.org/x/net/http/httpguts"
 )
-
-// Errors used by the HTTP server.
-var (
-	// ErrBodyNotAllowed is returned by ResponseWriter.Write calls
-	// when the HTTP method or response code does not permit a
-	// body.
-	ErrBodyNotAllowed = errors.New("http: request method or response status code does not allow body")
-
-	// ErrHijacked is returned by ResponseWriter.Write calls when
-	// the underlying connection has been hijacked using the
-	// Hijacker interface. A zero-byte write on a hijacked
-	// connection will return ErrHijacked without any other side
-	// effects.
-	ErrHijacked = errors.New("http: connection has been hijacked")
-
-	// ErrContentLength is returned by ResponseWriter.Write calls
-	// when a Handler set a Content-Length response header with a
-	// declared size and then attempted to write more bytes than
-	// declared.
-	ErrContentLength = errors.New("http: wrote more than the declared Content-Length")
-
-	// Deprecated: ErrWriteAfterFlush is no longer returned by
-	// anything in the net/http package. Callers should not
-	// compare errors against this variable.
-	ErrWriteAfterFlush = errors.New("unused")
-)
-
-// A Handler responds to an HTTP request.
-//
-// ServeHTTP should write reply headers and data to the ResponseWriter
-// and then return. Returning signals that the request is finished; it
-// is not valid to use the ResponseWriter or read from the
-// Request.Body after or concurrently with the completion of the
-// ServeHTTP call.
-//
-// Depending on the HTTP client software, HTTP protocol version, and
-// any intermediaries between the client and the Go server, it may not
-// be possible to read from the Request.Body after writing to the
-// ResponseWriter. Cautious handlers should read the Request.Body
-// first, and then reply.
-//
-// Except for reading the body, handlers should not modify the
-// provided Request.
-//
-// If ServeHTTP panics, the server (the caller of ServeHTTP) assumes
-// that the effect of the panic was isolated to the active request.
-// It recovers the panic, logs a stack trace to the server error log,
-// and either closes the network connection or sends an HTTP/2
-// RST_STREAM, depending on the HTTP protocol. To abort a handler so
-// the client sees an interrupted response but the server doesn't log
-// an error, panic with the value ErrAbortHandler.
-type Handler interface {
-	ServeHTTP(ResponseWriter, *Request)
-}
 
 // A ResponseWriter interface is used by an HTTP handler to
 // construct an HTTP response.
@@ -156,96 +101,6 @@ type ResponseWriter interface {
 	WriteHeader(statusCode int)
 }
 
-// The Flusher interface is implemented by ResponseWriters that allow
-// an HTTP handler to flush buffered data to the client.
-//
-// The default HTTP/1.x and HTTP/2 ResponseWriter implementations
-// support Flusher, but ResponseWriter wrappers may not. Handlers
-// should always test for this ability at runtime.
-//
-// Note that even for ResponseWriters that support Flush,
-// if the client is connected through an HTTP proxy,
-// the buffered data may not reach the client until the response
-// completes.
-type Flusher interface {
-	// Flush sends any buffered data to the client.
-	Flush()
-}
-
-// The Hijacker interface is implemented by ResponseWriters that allow
-// an HTTP handler to take over the connection.
-//
-// The default ResponseWriter for HTTP/1.x connections supports
-// Hijacker, but HTTP/2 connections intentionally do not.
-// ResponseWriter wrappers may also not support Hijacker. Handlers
-// should always test for this ability at runtime.
-type Hijacker interface {
-	// Hijack lets the caller take over the connection.
-	// After a call to Hijack the HTTP server library
-	// will not do anything else with the connection.
-	//
-	// It becomes the caller's responsibility to manage
-	// and close the connection.
-	//
-	// The returned net.Conn may have read or write deadlines
-	// already set, depending on the configuration of the
-	// Server. It is the caller's responsibility to set
-	// or clear those deadlines as needed.
-	//
-	// The returned bufio.Reader may contain unprocessed buffered
-	// data from the client.
-	//
-	// After a call to Hijack, the original Request.Body must not
-	// be used. The original Request's Context remains valid and
-	// is not canceled until the Request's ServeHTTP method
-	// returns.
-	Hijack() (net.Conn, *bufio.ReadWriter, error)
-}
-
-// The CloseNotifier interface is implemented by ResponseWriters which
-// allow detecting when the underlying connection has gone away.
-//
-// This mechanism can be used to cancel long operations on the server
-// if the client has disconnected before the response is ready.
-//
-// Deprecated: the CloseNotifier interface predates Go's context package.
-// New code should use Request.Context instead.
-type CloseNotifier interface {
-	// CloseNotify returns a channel that receives at most a
-	// single value (true) when the client connection has gone
-	// away.
-	//
-	// CloseNotify may wait to notify until Request.Body has been
-	// fully read.
-	//
-	// After the Handler has returned, there is no guarantee
-	// that the channel receives a value.
-	//
-	// If the protocol is HTTP/1.1 and CloseNotify is called while
-	// processing an idempotent request (such a GET) while
-	// HTTP/1.1 pipelining is in use, the arrival of a subsequent
-	// pipelined request may cause a value to be sent on the
-	// returned channel. In practice HTTP/1.1 pipelining is not
-	// enabled in browsers and not seen often in the wild. If this
-	// is a problem, use HTTP/2 or only use CloseNotify on methods
-	// such as POST.
-	CloseNotify() <-chan bool
-}
-
-var (
-	// ServerContextKey is a context key. It can be used in HTTP
-	// handlers with Context.Value to access the server that
-	// started the handler. The associated value will be of
-	// type *Server.
-	ServerContextKey = &contextKey{"http-server"}
-
-	// LocalAddrContextKey is a context key. It can be used in
-	// HTTP handlers with Context.Value to access the local
-	// address the connection arrived on.
-	// The associated value will be of type net.Addr.
-	LocalAddrContextKey = &contextKey{"local-addr"}
-)
-
 // A conn represents the server side of an HTTP connection.
 type conn struct {
 	// server is the server on which the connection arrived.
@@ -312,7 +167,7 @@ func (c *conn) hijacked() bool {
 // c.mu must be held.
 func (c *conn) hijackLocked() (rwc net.Conn, buf *bufio.ReadWriter, err error) {
 	if c.hijackedv {
-		return nil, nil, ErrHijacked
+		return nil, nil, originalHttp.ErrHijacked
 	}
 	c.r.abortPendingRead()
 
@@ -419,7 +274,7 @@ func (cw *chunkWriter) close() {
 // A response represents the server side of an HTTP response.
 type response struct {
 	conn             *conn
-	req              *Request // request for this response
+	req              *originalHttp.Request // request for this response
 	reqBody          io.ReadCloser
 	cancelCtx        context.CancelFunc // when ServeHTTP exits
 	wroteHeader      bool               // reply header has been (logically) written
@@ -587,7 +442,7 @@ func (w *response) ReadFrom(src io.Reader) (n int64, err error) {
 	// sendfile path:
 
 	if !w.wroteHeader {
-		w.WriteHeader(StatusOK)
+		w.WriteHeader(originalHttp.StatusOK)
 	}
 
 	if w.needsSniff() {
@@ -884,7 +739,7 @@ type expectContinueReader struct {
 
 func (ecr *expectContinueReader) Read(p []byte) (n int, err error) {
 	if ecr.closed {
-		return 0, ErrBodyReadAfterClose
+		return 0, originalHttp.ErrBodyReadAfterClose
 	}
 	if !ecr.resp.wroteContinue && !ecr.resp.conn.hijacked() {
 		ecr.resp.wroteContinue = true
@@ -938,7 +793,7 @@ var errTooLarge = errors.New("http: request too large")
 // Read next request from connection.
 func (c *conn) readRequest(ctx context.Context) (w *response, err error) {
 	if c.hijacked() {
-		return nil, ErrHijacked
+		return nil, originalHttp.ErrHijacked
 	}
 
 	var (
@@ -973,7 +828,7 @@ func (c *conn) readRequest(ctx context.Context) (w *response, err error) {
 		return nil, err
 	}
 
-	if !http1ServerSupportsRequest(req) {
+	if !http1ServerSupportsRequest(req.ToOriginalRequest()) {
 		return nil, badRequestError("unsupported protocol version")
 	}
 
@@ -1019,7 +874,7 @@ func (c *conn) readRequest(ctx context.Context) (w *response, err error) {
 	w = &response{
 		conn:          c,
 		cancelCtx:     cancelCtx,
-		req:           req,
+		req:           req.ToOriginalRequest(),
 		reqBody:       req.Body,
 		handlerHeader: make(Header),
 		contentLength: -1,
@@ -1041,7 +896,7 @@ func (c *conn) readRequest(ctx context.Context) (w *response, err error) {
 
 // http1ServerSupportsRequest reports whether Go's HTTP/1.x server
 // supports the given request.
-func http1ServerSupportsRequest(req *Request) bool {
+func http1ServerSupportsRequest(req *originalHttp.Request) bool {
 	if req.ProtoMajor == 1 {
 		return true
 	}
@@ -1056,7 +911,7 @@ func http1ServerSupportsRequest(req *Request) bool {
 	return false
 }
 
-func (w *response) Header() Header {
+func (w *response) Header() originalHttp.Header {
 	if w.cw.header == nil && w.wroteHeader && !w.cw.wroteHeader {
 		// Accessing the header between logically writing it
 		// and physically writing it means we need to allocate
@@ -1064,7 +919,7 @@ func (w *response) Header() Header {
 		w.cw.header = w.handlerHeader.Clone()
 	}
 	w.calledHeader = true
-	return w.handlerHeader
+	return w.handlerHeader.ToOriginalHeader()
 }
 
 // maxPostHandlerReadBytes is the max number of Request.Body bytes not
@@ -1555,7 +1410,7 @@ func (w *response) write(lenData int, dataB []byte, dataS string) (n int, err er
 			caller := relevantCaller()
 			w.conn.server.logf("http: response.Write on hijacked connection from %s (%s:%d)", caller.Function, path.Base(caller.File), caller.Line)
 		}
-		return 0, ErrHijacked
+		return 0, originalHttp.ErrHijacked
 	}
 	if !w.wroteHeader {
 		w.WriteHeader(StatusOK)
@@ -1564,12 +1419,12 @@ func (w *response) write(lenData int, dataB []byte, dataS string) (n int, err er
 		return 0, nil
 	}
 	if !w.bodyAllowed() {
-		return 0, ErrBodyNotAllowed
+		return 0, originalHttp.ErrBodyNotAllowed
 	}
 
 	w.written += int64(lenData) // ignoring errors, for errorKludge
 	if w.contentLength != -1 && w.written > w.contentLength {
-		return 0, ErrContentLength
+		return 0, originalHttp.ErrContentLength
 	}
 	if dataB != nil {
 		return w.w.Write(dataB)
@@ -1762,7 +1617,7 @@ func isCommonNetReadError(err error) bool {
 // Serve a new connection.
 func (c *conn) serve(ctx context.Context) {
 	c.remoteAddr = c.rwc.RemoteAddr().String()
-	ctx = context.WithValue(ctx, LocalAddrContextKey, c.rwc.LocalAddr())
+	ctx = context.WithValue(ctx, originalHttp.LocalAddrContextKey, c.rwc.LocalAddr())
 	defer func() {
 		if err := recover(); err != nil && err != ErrAbortHandler {
 			const size = 64 << 10
@@ -1865,12 +1720,12 @@ func (c *conn) serve(ctx context.Context) {
 
 		// Expect 100 Continue support
 		req := w.req
-		if req.expectsContinue() {
+		if FromOriginalToCustomRequest(req).expectsContinue() {
 			if req.ProtoAtLeast(1, 1) && req.ContentLength != 0 {
 				// Wrap the Body reader with one that replies on the connection
 				req.Body = &expectContinueReader{readCloser: req.Body, resp: w}
 			}
-		} else if req.Header.get("Expect") != "" {
+		} else if FromOriginalToCustomHeader(req.Header).get("Expect") != "" {
 			w.sendExpectationFailed()
 			return
 		}
@@ -1999,24 +1854,13 @@ func requestBodyRemains(rc io.ReadCloser) bool {
 	}
 }
 
-// The HandlerFunc type is an adapter to allow the use of
-// ordinary functions as HTTP handlers. If f is a function
-// with the appropriate signature, HandlerFunc(f) is a
-// Handler that calls f.
-type HandlerFunc func(ResponseWriter, *Request)
-
-// ServeHTTP calls f(w, r).
-func (f HandlerFunc) ServeHTTP(w ResponseWriter, r *Request) {
-	f(w, r)
-}
-
 // Helper handlers
 
 // Error replies to the request with the specified error message and HTTP code.
 // It does not otherwise end the request; the caller should ensure no further
 // writes are done to w.
 // The error message should be plain text.
-func Error(w ResponseWriter, error string, code int) {
+func Error(w originalHttp.ResponseWriter, error string, code int) {
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	w.Header().Set("X-Content-Type-Options", "nosniff")
 	w.WriteHeader(code)
@@ -2024,24 +1868,24 @@ func Error(w ResponseWriter, error string, code int) {
 }
 
 // NotFound replies to the request with an HTTP 404 not found error.
-func NotFound(w ResponseWriter, r *Request) { Error(w, "404 page not found", StatusNotFound) }
+func NotFound(w originalHttp.ResponseWriter, r *originalHttp.Request) { Error(w, "404 page not found", StatusNotFound) }
 
 // NotFoundHandler returns a simple request handler
 // that replies to each request with a ``404 page not found'' reply.
-func NotFoundHandler() Handler { return HandlerFunc(NotFound) }
+func NotFoundHandler() originalHttp.Handler { return originalHttp.HandlerFunc(NotFound) }
 
 // StripPrefix returns a handler that serves HTTP requests
 // by removing the given prefix from the request URL's Path
 // and invoking the handler h. StripPrefix handles a
 // request for a path that doesn't begin with prefix by
 // replying with an HTTP 404 not found error.
-func StripPrefix(prefix string, h Handler) Handler {
+func StripPrefix(prefix string, h originalHttp.Handler) originalHttp.Handler {
 	if prefix == "" {
 		return h
 	}
-	return HandlerFunc(func(w ResponseWriter, r *Request) {
+	return originalHttp.HandlerFunc(func(w originalHttp.ResponseWriter, r *originalHttp.Request) {
 		if p := strings.TrimPrefix(r.URL.Path, prefix); len(p) < len(r.URL.Path) {
-			r2 := new(Request)
+			r2 := new(originalHttp.Request)
 			*r2 = *r
 			r2.URL = new(url.URL)
 			*r2.URL = *r.URL
@@ -2063,7 +1907,7 @@ func StripPrefix(prefix string, h Handler) Handler {
 // to "text/html; charset=utf-8" and writes a small HTML body.
 // Setting the Content-Type header to any value, including nil,
 // disables that behavior.
-func Redirect(w ResponseWriter, r *Request, url string, code int) {
+func Redirect(w originalHttp.ResponseWriter, r *originalHttp.Request, url string, code int) {
 	// parseURL is just url.Parse (url is shadowed for godoc).
 	if u, err := parseURL(url); err == nil {
 		// If url was relative, make its path absolute by
@@ -2143,7 +1987,7 @@ type redirectHandler struct {
 	code int
 }
 
-func (rh *redirectHandler) ServeHTTP(w ResponseWriter, r *Request) {
+func (rh *redirectHandler) ServeHTTP(w originalHttp.ResponseWriter, r *originalHttp.Request) {
 	Redirect(w, r, rh.url, rh.code)
 }
 
@@ -2153,7 +1997,7 @@ func (rh *redirectHandler) ServeHTTP(w ResponseWriter, r *Request) {
 //
 // The provided code should be in the 3xx range and is usually
 // StatusMovedPermanently, StatusFound or StatusSeeOther.
-func RedirectHandler(url string, code int) Handler {
+func RedirectHandler(url string, code int) originalHttp.Handler {
 	return &redirectHandler{url, code}
 }
 
@@ -2200,7 +2044,7 @@ type ServeMux struct {
 }
 
 type muxEntry struct {
-	h       Handler
+	h       originalHttp.Handler
 	pattern string
 }
 
@@ -2249,7 +2093,7 @@ func stripHostPort(h string) string {
 
 // Find a handler on a handler map given a path string.
 // Most-specific (longest) pattern wins.
-func (mux *ServeMux) match(path string) (h Handler, pattern string) {
+func (mux *ServeMux) match(path string) (h originalHttp.Handler, pattern string) {
 	// Check for exact match first.
 	v, ok := mux.m[path]
 	if ok {
@@ -2322,7 +2166,7 @@ func (mux *ServeMux) shouldRedirectRLocked(host, path string) bool {
 //
 // If there is no registered handler that applies to the request,
 // Handler returns a ``page not found'' handler and an empty pattern.
-func (mux *ServeMux) Handler(r *Request) (h Handler, pattern string) {
+func (mux *ServeMux) Handler(r *originalHttp.Request) (h originalHttp.Handler, pattern string) {
 
 	// CONNECT requests are not canonicalized.
 	if r.Method == "CONNECT" {
@@ -2359,7 +2203,7 @@ func (mux *ServeMux) Handler(r *Request) (h Handler, pattern string) {
 
 // handler is the main implementation of Handler.
 // The path is known to be in canonical form, except for CONNECT methods.
-func (mux *ServeMux) handler(host, path string) (h Handler, pattern string) {
+func (mux *ServeMux) handler(host, path string) (h originalHttp.Handler, pattern string) {
 	mux.mu.RLock()
 	defer mux.mu.RUnlock()
 
@@ -2378,7 +2222,7 @@ func (mux *ServeMux) handler(host, path string) (h Handler, pattern string) {
 
 // ServeHTTP dispatches the request to the handler whose
 // pattern most closely matches the request URL.
-func (mux *ServeMux) ServeHTTP(w ResponseWriter, r *Request) {
+func (mux *ServeMux) ServeHTTP(w originalHttp.ResponseWriter, r *originalHttp.Request) {
 	if r.RequestURI == "*" {
 		if r.ProtoAtLeast(1, 1) {
 			w.Header().Set("Connection", "close")
@@ -2392,7 +2236,7 @@ func (mux *ServeMux) ServeHTTP(w ResponseWriter, r *Request) {
 
 // Handle registers the handler for the given pattern.
 // If a handler already exists for pattern, Handle panics.
-func (mux *ServeMux) Handle(pattern string, handler Handler) {
+func (mux *ServeMux) Handle(pattern string, handler originalHttp.Handler) {
 	mux.mu.Lock()
 	defer mux.mu.Unlock()
 
@@ -2436,22 +2280,22 @@ func appendSorted(es []muxEntry, e muxEntry) []muxEntry {
 }
 
 // HandleFunc registers the handler function for the given pattern.
-func (mux *ServeMux) HandleFunc(pattern string, handler func(ResponseWriter, *Request)) {
+func (mux *ServeMux) HandleFunc(pattern string, handler func(originalHttp.ResponseWriter, *originalHttp.Request)) {
 	if handler == nil {
 		panic("http: nil handler")
 	}
-	mux.Handle(pattern, HandlerFunc(handler))
+	mux.Handle(pattern, originalHttp.HandlerFunc(handler))
 }
 
 // Handle registers the handler for the given pattern
 // in the DefaultServeMux.
 // The documentation for ServeMux explains how patterns are matched.
-func Handle(pattern string, handler Handler) { DefaultServeMux.Handle(pattern, handler) }
+func Handle(pattern string, handler originalHttp.Handler) { DefaultServeMux.Handle(pattern, handler) }
 
 // HandleFunc registers the handler function for the given pattern
 // in the DefaultServeMux.
 // The documentation for ServeMux explains how patterns are matched.
-func HandleFunc(pattern string, handler func(ResponseWriter, *Request)) {
+func HandleFunc(pattern string, handler func(originalHttp.ResponseWriter, *originalHttp.Request)) {
 	DefaultServeMux.HandleFunc(pattern, handler)
 }
 
@@ -2466,7 +2310,7 @@ func HandleFunc(pattern string, handler func(ResponseWriter, *Request)) {
 // Config.NextProtos.
 //
 // Serve always returns a non-nil error.
-func Serve(l net.Listener, handler Handler) error {
+func Serve(l net.Listener, handler originalHttp.Handler) error {
 	srv := &Server{Handler: handler}
 	return srv.Serve(l)
 }
@@ -2483,7 +2327,7 @@ func Serve(l net.Listener, handler Handler) error {
 // of the server's certificate, any intermediates, and the CA's certificate.
 //
 // ServeTLS always returns a non-nil error.
-func ServeTLS(l net.Listener, handler Handler, certFile, keyFile string) error {
+func ServeTLS(l net.Listener, handler originalHttp.Handler, certFile, keyFile string) error {
 	srv := &Server{Handler: handler}
 	return srv.ServeTLS(l, certFile, keyFile)
 }
@@ -2492,7 +2336,7 @@ func ServeTLS(l net.Listener, handler Handler, certFile, keyFile string) error {
 // The zero value for Server is a valid configuration.
 type Server struct {
 	Addr    string  // TCP address to listen on, ":http" if empty
-	Handler Handler // handler to invoke, http.DefaultServeMux if nil
+	Handler originalHttp.Handler // handler to invoke, http.DefaultServeMux if nil
 
 	// TLSConfig optionally provides a TLS configuration for use
 	// by ServeTLS and ListenAndServeTLS. Note that this value is
@@ -2548,7 +2392,7 @@ type Server struct {
 	// automatically closed when the function returns.
 	// If TLSNextProto is not nil, HTTP/2 support is not enabled
 	// automatically.
-	TLSNextProto map[string]func(*Server, *tls.Conn, Handler)
+	TLSNextProto map[string]func(*Server, *tls.Conn, originalHttp.Handler)
 
 	// ConnState specifies an optional callback function that is
 	// called when a client connection changes state. See the
@@ -2794,7 +2638,7 @@ type serverHandler struct {
 	srv *Server
 }
 
-func (sh serverHandler) ServeHTTP(rw ResponseWriter, req *Request) {
+func (sh serverHandler) ServeHTTP(rw originalHttp.ResponseWriter, req *originalHttp.Request) {
 	handler := sh.srv.Handler
 	if handler == nil {
 		handler = DefaultServeMux
@@ -2894,7 +2738,7 @@ func (srv *Server) Serve(l net.Listener) error {
 		}
 	}
 
-	ctx := context.WithValue(baseCtx, ServerContextKey, srv)
+	ctx := context.WithValue(baseCtx, originalHttp.ServerContextKey, srv)
 	for {
 		rw, e := l.Accept()
 		if e != nil {
@@ -3064,7 +2908,7 @@ func (s *Server) logf(format string, args ...interface{}) {
 // via ServerContextKey. If there's no associated server, or if ErrorLog
 // is nil, logging is done via the log package's standard logger.
 func logf(r *Request, format string, args ...interface{}) {
-	s, _ := r.Context().Value(ServerContextKey).(*Server)
+	s, _ := r.Context().Value(originalHttp.ServerContextKey).(*Server)
 	if s != nil && s.ErrorLog != nil {
 		s.ErrorLog.Printf(format, args...)
 	} else {
@@ -3091,7 +2935,7 @@ func ListenAndServe(addr string, handler originalHttp.Handler) error {
 // matching private key for the server must be provided. If the certificate
 // is signed by a certificate authority, the certFile should be the concatenation
 // of the server's certificate, any intermediates, and the CA's certificate.
-func ListenAndServeTLS(addr, certFile, keyFile string, handler Handler) error {
+func ListenAndServeTLS(addr, certFile, keyFile string, handler originalHttp.Handler) error {
 	server := &Server{Addr: addr, Handler: handler}
 	return server.ListenAndServeTLS(certFile, keyFile)
 }
@@ -3185,7 +3029,7 @@ func (srv *Server) onceSetNextProtoDefaults() {
 //
 // TimeoutHandler supports the Flusher and Pusher interfaces but does not
 // support the Hijacker interface.
-func TimeoutHandler(h Handler, dt time.Duration, msg string) Handler {
+func TimeoutHandler(h originalHttp.Handler, dt time.Duration, msg string) originalHttp.Handler {
 	return &timeoutHandler{
 		handler: h,
 		body:    msg,
@@ -3198,7 +3042,7 @@ func TimeoutHandler(h Handler, dt time.Duration, msg string) Handler {
 var ErrHandlerTimeout = errors.New("http: Handler timeout")
 
 type timeoutHandler struct {
-	handler Handler
+	handler originalHttp.Handler
 	body    string
 	dt      time.Duration
 
@@ -3214,7 +3058,7 @@ func (h *timeoutHandler) errorBody() string {
 	return "<html><head><title>Timeout</title></head><body><h1>Timeout</h1></body></html>"
 }
 
-func (h *timeoutHandler) ServeHTTP(w ResponseWriter, r *Request) {
+func (h *timeoutHandler) ServeHTTP(w originalHttp.ResponseWriter, r *originalHttp.Request) {
 	ctx := h.testContext
 	if ctx == nil {
 		var cancelCtx context.CancelFunc
@@ -3262,7 +3106,7 @@ func (h *timeoutHandler) ServeHTTP(w ResponseWriter, r *Request) {
 }
 
 type timeoutWriter struct {
-	w    ResponseWriter
+	w    originalHttp.ResponseWriter
 	h    Header
 	wbuf bytes.Buffer
 
@@ -3282,7 +3126,7 @@ func (tw *timeoutWriter) Push(target string, opts *PushOptions) error {
 	return ErrNotSupported
 }
 
-func (tw *timeoutWriter) Header() Header { return tw.h }
+func (tw *timeoutWriter) Header() originalHttp.Header { return tw.h.ToOriginalHeader() }
 
 func (tw *timeoutWriter) Write(p []byte) (int, error) {
 	tw.mu.Lock()
@@ -3329,7 +3173,7 @@ func (oc *onceCloseListener) close() { oc.closeErr = oc.Listener.Close() }
 // globalOptionsHandler responds to "OPTIONS *" requests.
 type globalOptionsHandler struct{}
 
-func (globalOptionsHandler) ServeHTTP(w ResponseWriter, r *Request) {
+func (globalOptionsHandler) ServeHTTP(w originalHttp.ResponseWriter, r *originalHttp.Request) {
 	w.Header().Set("Content-Length", "0")
 	if r.ContentLength != 0 {
 		// Read up to 4KB of OPTIONS body (as mentioned in the
@@ -3357,7 +3201,7 @@ type initNPNRequest struct {
 // interface we have available.
 func (h initNPNRequest) BaseContext() context.Context { return h.ctx }
 
-func (h initNPNRequest) ServeHTTP(rw ResponseWriter, req *Request) {
+func (h initNPNRequest) ServeHTTP(rw originalHttp.ResponseWriter, req *originalHttp.Request) {
 	if req.TLS == nil {
 		req.TLS = &tls.ConnectionState{}
 		*req.TLS = h.c.ConnectionState()

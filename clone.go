@@ -6,6 +6,7 @@ package http
 
 import (
 	"mime/multipart"
+	originalHttp "net/http"
 	"net/textproto"
 	"net/url"
 )
@@ -65,10 +66,10 @@ func cloneMultipartFileHeader(fh *multipart.FileHeader) *multipart.FileHeader {
 
 // cloneOrMakeHeader invokes Header.Clone but if the
 // result is nil, it'll instead make and return a non-nil Header.
-func cloneOrMakeHeader(hdr Header) Header {
+func cloneOrMakeHeader(hdr originalHttp.Header) originalHttp.Header {
 	clone := hdr.Clone()
 	if clone == nil {
-		clone = make(Header)
+		clone = make(originalHttp.Header)
 	}
 	return clone
 }

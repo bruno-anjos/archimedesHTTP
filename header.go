@@ -6,7 +6,8 @@ package http
 
 import (
 	"io"
-	"github.com/bruno-anjos/archimedesHTTPClient/httptrace"
+	originalHttp "net/http"
+	"net/http/httptrace"
 	"net/textproto"
 	"sort"
 	"strings"
@@ -19,6 +20,24 @@ import (
 // The keys should be in canonical form, as returned by
 // CanonicalHeaderKey.
 type Header map[string][]string
+
+func FromOriginalToCustomHeader(h originalHttp.Header) Header {
+	casted := Header{}
+	for k, v := range h {
+		casted[k] = v
+	}
+
+	return casted
+}
+
+func (h Header) ToOriginalHeader() originalHttp.Header {
+	casted := originalHttp.Header{}
+	for k, v := range h {
+		casted[k] = v
+	}
+
+	return casted
+}
 
 // Add adds the key, value pair to the header.
 // It appends to any existing values associated with key.

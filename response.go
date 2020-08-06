@@ -13,6 +13,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	originalHttp "net/http"
 	"net/textproto"
 	"net/url"
 	"strconv"
@@ -119,6 +120,44 @@ type Response struct {
 	// The pointer is shared between responses and should not be
 	// modified.
 	TLS *tls.ConnectionState
+}
+
+func FromOriginalToCustomResponse(r *originalHttp.Response) *Response{
+	return &Response{
+		Status:           r.Status,
+		StatusCode:       r.StatusCode,
+		Proto:            r.Proto,
+		ProtoMajor:       r.ProtoMajor,
+		ProtoMinor:       r.ProtoMinor,
+		Header:           FromOriginalToCustomHeader(r.Header),
+		Body:             r.Body,
+		ContentLength:    r.ContentLength,
+		TransferEncoding: r.TransferEncoding,
+		Close:            r.Close,
+		Uncompressed:     r.Uncompressed,
+		Trailer:          FromOriginalToCustomHeader(r.Trailer),
+		Request:          FromOriginalToCustomRequest(r.Request),
+		TLS:              r.TLS,
+	}
+}
+
+func (r *Response) ToOriginalResponse() *originalHttp.Response{
+	return &originalHttp.Response{
+		Status:           r.Status,
+		StatusCode:       r.StatusCode,
+		Proto:            r.Proto,
+		ProtoMajor:       r.ProtoMajor,
+		ProtoMinor:       r.ProtoMinor,
+		Header:           r.Header.ToOriginalHeader(),
+		Body:             r.Body,
+		ContentLength:    r.ContentLength,
+		TransferEncoding: r.TransferEncoding,
+		Close:            r.Close,
+		Uncompressed:     r.Uncompressed,
+		Trailer:          r.Trailer.ToOriginalHeader(),
+		Request:          r.Request.ToOriginalRequest(),
+		TLS:              r.TLS,
+	}
 }
 
 // Cookies parses and returns the cookies set in the Set-Cookie headers.

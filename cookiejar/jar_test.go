@@ -6,7 +6,7 @@ package cookiejar
 
 import (
 	"fmt"
-	http "github.com/bruno-anjos/archimedesHTTPClient"
+	"net/http"
 	"net/url"
 	"sort"
 	"strings"

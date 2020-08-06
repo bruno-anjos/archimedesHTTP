@@ -11,8 +11,8 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"github.com/bruno-anjos/archimedesHTTPClient/httptrace"
-	"github.com/bruno-anjos/archimedesHTTPClient/internal"
+	originalHttp "net/http"
+	"net/http/httptrace"
 	"net/textproto"
 	"reflect"
 	"sort"
@@ -21,6 +21,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/bruno-anjos/archimedesHTTPClient/internal"
 	"golang.org/x/net/http/httpguts"
 )
 
@@ -79,18 +80,18 @@ func newTransferWriter(r interface{}) (t *transferWriter, err error) {
 	// Extract relevant fields
 	atLeastHTTP11 := false
 	switch rr := r.(type) {
-	case *Request:
+	case *originalHttp.Request:
 		if rr.ContentLength != 0 && rr.Body == nil {
 			return nil, fmt.Errorf("http: Request.ContentLength=%d with nil Body", rr.ContentLength)
 		}
 		t.Method = valueOrDefault(rr.Method, "GET")
 		t.Close = rr.Close
 		t.TransferEncoding = rr.TransferEncoding
-		t.Header = rr.Header
-		t.Trailer = rr.Trailer
+		t.Header = FromOriginalToCustomHeader(rr.Header)
+		t.Trailer = FromOriginalToCustomHeader(rr.Trailer)
 		t.Body = rr.Body
 		t.BodyCloser = rr.Body
-		t.ContentLength = rr.outgoingLength()
+		t.ContentLength = FromOriginalToCustomRequest(rr).outgoingLength()
 		if t.ContentLength < 0 && len(t.TransferEncoding) == 0 && t.shouldSendChunkedRequestBody() {
 			t.TransferEncoding = []string{"chunked"}
 		}
@@ -106,7 +107,7 @@ func newTransferWriter(r interface{}) (t *transferWriter, err error) {
 		}
 
 		atLeastHTTP11 = true // Transport requests are always 1.1 or 2.0
-	case *Response:
+	case *originalHttp.Response:
 		t.IsResponse = true
 		if rr.Request != nil {
 			t.Method = rr.Request.Method
@@ -116,8 +117,8 @@ func newTransferWriter(r interface{}) (t *transferWriter, err error) {
 		t.ContentLength = rr.ContentLength
 		t.Close = rr.Close
 		t.TransferEncoding = rr.TransferEncoding
-		t.Header = rr.Header
-		t.Trailer = rr.Trailer
+		t.Header = FromOriginalToCustomHeader(rr.Header)
+		t.Trailer = FromOriginalToCustomHeader(rr.Trailer)
 		atLeastHTTP11 = rr.ProtoAtLeast(1, 1)
 		t.ResponseToHEAD = noResponseBodyExpected(t.Method)
 	}
@@ -473,8 +474,8 @@ func readTransfer(msg interface{}, r *bufio.Reader) (err error) {
 	// Unify input
 	isResponse := false
 	switch rr := msg.(type) {
-	case *Response:
-		t.Header = rr.Header
+	case *originalHttp.Response:
+		t.Header = FromOriginalToCustomHeader(rr.Header)
 		t.StatusCode = rr.StatusCode
 		t.ProtoMajor = rr.ProtoMajor
 		t.ProtoMinor = rr.ProtoMinor
@@ -531,7 +532,7 @@ func readTransfer(msg interface{}, r *bufio.Reader) (err error) {
 	// and the status is not 1xx, 204 or 304, then the body is unbounded.
 	// See RFC 7230, section 3.3.
 	switch msg.(type) {
-	case *Response:
+	case *originalHttp.Response:
 		if realLength == -1 &&
 			!chunked(t.TransferEncoding) &&
 			bodyAllowedForStatus(t.StatusCode) {
@@ -566,18 +567,18 @@ func readTransfer(msg interface{}, r *bufio.Reader) (err error) {
 
 	// Unify output
 	switch rr := msg.(type) {
-	case *Request:
+	case *originalHttp.Request:
 		rr.Body = t.Body
 		rr.ContentLength = t.ContentLength
 		rr.TransferEncoding = t.TransferEncoding
 		rr.Close = t.Close
-		rr.Trailer = t.Trailer
-	case *Response:
+		rr.Trailer = t.Trailer.ToOriginalHeader()
+	case *originalHttp.Response:
 		rr.Body = t.Body
 		rr.ContentLength = t.ContentLength
 		rr.TransferEncoding = t.TransferEncoding
 		rr.Close = t.Close
-		rr.Trailer = t.Trailer
+		rr.Trailer = t.Trailer.ToOriginalHeader()
 	}
 
 	return nil
@@ -944,10 +945,12 @@ func (b *body) readTrailer() error {
 		return err
 	}
 	switch rr := b.hdr.(type) {
-	case *Request:
-		mergeSetHeader(&rr.Trailer, Header(hdr))
-	case *Response:
-		mergeSetHeader(&rr.Trailer, Header(hdr))
+	case *originalHttp.Request:
+		h := FromOriginalToCustomHeader(rr.Trailer)
+		mergeSetHeader(&h, Header(hdr))
+	case *originalHttp.Response:
+		h := FromOriginalToCustomHeader(rr.Trailer)
+		mergeSetHeader(&h, Header(hdr))
 	}
 	return nil
 }

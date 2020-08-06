@@ -20,7 +20,7 @@ import (
 	"io"
 	"log"
 	"net"
-	"github.com/bruno-anjos/archimedesHTTPClient/httptrace"
+	"net/http/httptrace"
 	"net/textproto"
 	"net/url"
 	"os"
@@ -482,8 +482,8 @@ func (t *Transport) roundTrip(req *Request) (*Response, error) {
 	if t.useRegisteredProtocol(req) {
 		altProto, _ := t.altProto.Load().(map[string]RoundTripper)
 		if altRT := altProto[scheme]; altRT != nil {
-			if resp, err := altRT.RoundTrip(req); err != ErrSkipAltProtocol {
-				return resp, err
+			if resp, err := altRT.RoundTrip(req.ToOriginalRequest()); err != ErrSkipAltProtocol {
+				return FromOriginalToCustomResponse(resp), err
 			}
 		}
 	}
@@ -530,7 +530,8 @@ func (t *Transport) roundTrip(req *Request) (*Response, error) {
 		if pconn.alt != nil {
 			// HTTP/2 path.
 			t.setReqCanceler(req, nil) // not cancelable with CancelRequest
-			resp, err = pconn.alt.RoundTrip(req)
+			tempR, _ := pconn.alt.RoundTrip(req.ToOriginalRequest())
+			resp = FromOriginalToCustomResponse(tempR)
 		} else {
 			resp, err = pconn.roundTrip(treq)
 		}

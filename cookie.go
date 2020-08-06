@@ -7,6 +7,7 @@ package http
 import (
 	"log"
 	"net"
+	originalHttp "net/http"
 	"strconv"
 	"strings"
 	"time"
@@ -31,9 +32,43 @@ type Cookie struct {
 	MaxAge   int
 	Secure   bool
 	HttpOnly bool
-	SameSite SameSite
+	SameSite originalHttp.SameSite
 	Raw      string
 	Unparsed []string // Raw text of unparsed attribute-value pairs
+}
+
+func FromOriginalToCustomCookie(c *originalHttp.Cookie) *Cookie {
+	return &Cookie{
+		Name:       c.Name,
+		Value:      c.Value,
+		Path:       c.Path,
+		Domain:     c.Domain,
+		Expires:    c.Expires,
+		RawExpires: c.RawExpires,
+		MaxAge:     c.MaxAge,
+		Secure:     c.Secure,
+		HttpOnly:   c.HttpOnly,
+		SameSite:   c.SameSite,
+		Raw:        c.Raw,
+		Unparsed:   c.Unparsed,
+	}
+}
+
+func (c *Cookie) ToOriginalCookie() *originalHttp.Cookie {
+	return &originalHttp.Cookie{
+		Name:       c.Name,
+		Value:      c.Value,
+		Path:       c.Path,
+		Domain:     c.Domain,
+		Expires:    c.Expires,
+		RawExpires: c.RawExpires,
+		MaxAge:     c.MaxAge,
+		Secure:     c.Secure,
+		HttpOnly:   c.HttpOnly,
+		SameSite:   c.SameSite,
+		Raw:        c.Raw,
+		Unparsed:   c.Unparsed,
+	}
 }
 
 // SameSite allows a server to define a cookie attribute making it impossible for
@@ -42,10 +77,9 @@ type Cookie struct {
 // some protection against cross-site request forgery attacks.
 //
 // See https://tools.ietf.org/html/draft-ietf-httpbis-cookie-same-site-00 for details.
-type SameSite int
 
 const (
-	SameSiteDefaultMode SameSite = iota + 1
+	SameSiteDefaultMode originalHttp.SameSite = iota + 1
 	SameSiteLaxMode
 	SameSiteStrictMode
 	SameSiteNoneMode
@@ -157,7 +191,7 @@ func readSetCookies(h Header) []*Cookie {
 // SetCookie adds a Set-Cookie header to the provided ResponseWriter's headers.
 // The provided cookie must have a valid Name. Invalid cookies may be
 // silently dropped.
-func SetCookie(w ResponseWriter, cookie *Cookie) {
+func SetCookie(w originalHttp.ResponseWriter, cookie *Cookie) {
 	if v := cookie.String(); v != "" {
 		w.Header().Add("Set-Cookie", v)
 	}

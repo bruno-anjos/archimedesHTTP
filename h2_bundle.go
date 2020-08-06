@@ -32,7 +32,7 @@ import (
 	"math"
 	mathrand "math/rand"
 	"net"
-	"github.com/bruno-anjos/archimedesHTTPClient/httptrace"
+	"net/http/httptrace"
 	"net/textproto"
 	"net/url"
 	"os"
@@ -44,6 +44,8 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+
+	originalHttp "net/http"
 
 	"golang.org/x/net/http/httpguts"
 	"golang.org/x/net/http2/hpack"
@@ -3838,7 +3840,7 @@ func http2ConfigureServer(s *Server, conf *http2Server) error {
 	if s.TLSNextProto == nil {
 		s.TLSNextProto = map[string]func(*Server, *tls.Conn, Handler){}
 	}
-	protoHandler := func(hs *Server, c *tls.Conn, h Handler) {
+	protoHandler := func(hs *Server, c *tls.Conn, h originalHttp.Handler) {
 		if http2testHookOnConn != nil {
 			http2testHookOnConn()
 		}
@@ -8893,7 +8895,7 @@ func http2strSliceContains(ss []string, s string) bool {
 
 type http2erringRoundTripper struct{ err error }
 
-func (rt http2erringRoundTripper) RoundTrip(*Request) (*Response, error) { return nil, rt.err }
+func (rt http2erringRoundTripper) RoundTrip(*originalHttp.Request) (*originalHttp.Response, error) { return nil, rt.err }
 
 // gzipReader wraps a response body so it can lazily
 // call gzip.NewReader on the first call to Read

@@ -6,6 +6,10 @@
 
 package http
 
+import (
+	originalHttp "net/http"
+)
+
 // RoundTrip implements the RoundTripper interface.
 //
 // For higher-level HTTP client support (such as handling of cookies
@@ -13,6 +17,7 @@ package http
 //
 // Like the RoundTripper interface, the error types returned
 // by RoundTrip are unspecified.
-func (t *Transport) RoundTrip(req *Request) (*Response, error) {
-	return t.roundTrip(req)
+func (t *Transport) RoundTrip(req *originalHttp.Request) (*originalHttp.Response, error) {
+	tempR, err := t.roundTrip(FromOriginalToCustomRequest(req))
+	return tempR.ToOriginalResponse(), err
 }

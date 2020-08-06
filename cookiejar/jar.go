@@ -9,7 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
-	http "github.com/bruno-anjos/archimedesHTTPClient"
+	"net/http"
 	"net/url"
 	"sort"
 	"strings"

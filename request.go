@@ -19,7 +19,8 @@ import (
 	"mime"
 	"mime/multipart"
 	"net"
-	"github.com/bruno-anjos/archimedesHTTPClient/httptrace"
+	originalHttp "net/http"
+	"net/http/httptrace"
 	"net/textproto"
 	"net/url"
 	"strconv"
@@ -312,13 +313,65 @@ type Request struct {
 	// Response is the redirect response which caused this request
 	// to be created. This field is only populated during client
 	// redirects.
-	Response *Response
+	Response *originalHttp.Response
 
 	// ctx is either the client or server context. It should only
 	// be modified via copying the whole Request using WithContext.
 	// It is unexported to prevent people from using Context wrong
 	// and mutating the contexts held by callers of the same request.
 	ctx context.Context
+}
+
+func FromOriginalToCustomRequest(r *originalHttp.Request) *Request {
+	return &Request{
+		Method:           r.Method,
+		URL:              r.URL,
+		Proto:            r.Proto,
+		ProtoMajor:       r.ProtoMajor,
+		ProtoMinor:       r.ProtoMinor,
+		Header:           FromOriginalToCustomHeader(r.Header),
+		Body:             r.Body,
+		GetBody:          r.GetBody,
+		ContentLength:    r.ContentLength,
+		TransferEncoding: r.TransferEncoding,
+		Close:            r.Close,
+		Host:             r.Host,
+		Form:             r.Form,
+		PostForm:         r.PostForm,
+		MultipartForm:    r.MultipartForm,
+		Trailer:          FromOriginalToCustomHeader(r.Trailer),
+		RemoteAddr:       r.RemoteAddr,
+		RequestURI:       r.RequestURI,
+		TLS:              r.TLS,
+		Cancel:           r.Cancel,
+		Response:         r.Response,
+	}
+}
+
+func (r *Request) ToOriginalRequest() *originalHttp.Request {
+	return &originalHttp.Request{
+		Method:           r.Method,
+		URL:              r.URL,
+		Proto:            r.Proto,
+		ProtoMajor:       r.ProtoMajor,
+		ProtoMinor:       r.ProtoMinor,
+		Header:           r.Header.ToOriginalHeader(),
+		Body:             r.Body,
+		GetBody:          r.GetBody,
+		ContentLength:    r.ContentLength,
+		TransferEncoding: r.TransferEncoding,
+		Close:            r.Close,
+		Host:             r.Host,
+		Form:             r.Form,
+		PostForm:         r.PostForm,
+		MultipartForm:    r.MultipartForm,
+		Trailer:          r.Trailer.ToOriginalHeader(),
+		RemoteAddr:       r.RemoteAddr,
+		RequestURI:       r.RequestURI,
+		TLS:              r.TLS,
+		Cancel:           r.Cancel,
+		Response:         r.Response,
+	}
 }
 
 // Context returns the request's context. To change the context, use
@@ -1107,12 +1160,12 @@ func readRequest(b *bufio.Reader, deleteHostHeader bool) (req *Request, err erro
 //
 // MaxBytesReader prevents clients from accidentally or maliciously
 // sending a large request and wasting server resources.
-func MaxBytesReader(w ResponseWriter, r io.ReadCloser, n int64) io.ReadCloser {
+func MaxBytesReader(w originalHttp.ResponseWriter, r io.ReadCloser, n int64) io.ReadCloser {
 	return &maxBytesReader{w: w, r: r, n: n}
 }
 
 type maxBytesReader struct {
-	w   ResponseWriter
+	w   originalHttp.ResponseWriter
 	r   io.ReadCloser // underlying reader
 	n   int64         // max bytes remaining
 	err error         // sticky error

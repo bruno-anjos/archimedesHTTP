@@ -7,9 +7,9 @@ package cookiejar_test
 import (
 	"fmt"
 	"log"
-	http "github.com/bruno-anjos/archimedesHTTPClient"
-	"github.com/bruno-anjos/archimedesHTTPClient/cookiejar"
-	"github.com/bruno-anjos/archimedesHTTPClient/httptest"
+	"net/http"
+	"net/http/cookiejar"
+	"net/http/httptest"
 	"net/url"
 )
 

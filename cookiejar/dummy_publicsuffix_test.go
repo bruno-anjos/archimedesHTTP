@@ -4,7 +4,7 @@
 
 package cookiejar_test
 
-import "github.com/bruno-anjos/archimedesHTTPClient/cookiejar"
+import "net/http/cookiejar"
 
 type dummypsl struct {
 	List cookiejar.PublicSuffixList
