@@ -323,6 +323,10 @@ type Request struct {
 }
 
 func FromOriginalToCustomRequest(r *originalHttp.Request) *Request {
+	if r == nil {
+		return nil
+	}
+
 	return &Request{
 		Method:           r.Method,
 		URL:              r.URL,
@@ -349,13 +353,25 @@ func FromOriginalToCustomRequest(r *originalHttp.Request) *Request {
 }
 
 func (r *Request) ToOriginalRequest() *originalHttp.Request {
+	var (
+		newH, newT originalHttp.Header = nil, nil
+	)
+
+	if r.Header != nil {
+		newH = r.Header.ToOriginalHeader()
+	}
+
+	if r.Trailer != nil {
+		newT = r.Trailer.ToOriginalHeader()
+	}
+
 	return &originalHttp.Request{
 		Method:           r.Method,
 		URL:              r.URL,
 		Proto:            r.Proto,
 		ProtoMajor:       r.ProtoMajor,
 		ProtoMinor:       r.ProtoMinor,
-		Header:           r.Header.ToOriginalHeader(),
+		Header:           newH,
 		Body:             r.Body,
 		GetBody:          r.GetBody,
 		ContentLength:    r.ContentLength,
@@ -365,7 +381,7 @@ func (r *Request) ToOriginalRequest() *originalHttp.Request {
 		Form:             r.Form,
 		PostForm:         r.PostForm,
 		MultipartForm:    r.MultipartForm,
-		Trailer:          r.Trailer.ToOriginalHeader(),
+		Trailer:          newT,
 		RemoteAddr:       r.RemoteAddr,
 		RequestURI:       r.RequestURI,
 		TLS:              r.TLS,

@@ -38,6 +38,10 @@ type Cookie struct {
 }
 
 func FromOriginalToCustomCookie(c *originalHttp.Cookie) *Cookie {
+	if c == nil {
+		return nil
+	}
+
 	return &Cookie{
 		Name:       c.Name,
 		Value:      c.Value,

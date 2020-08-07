@@ -22,6 +22,10 @@ import (
 type Header map[string][]string
 
 func FromOriginalToCustomHeader(h originalHttp.Header) Header {
+	if h == nil {
+		return nil
+	}
+
 	casted := Header{}
 	for k, v := range h {
 		casted[k] = v

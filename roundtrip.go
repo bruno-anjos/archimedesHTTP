@@ -19,5 +19,8 @@ import (
 // by RoundTrip are unspecified.
 func (t *Transport) RoundTrip(req *originalHttp.Request) (*originalHttp.Response, error) {
 	tempR, err := t.roundTrip(FromOriginalToCustomRequest(req))
-	return tempR.ToOriginalResponse(), err
+	if tempR != nil {
+		return tempR.ToOriginalResponse(), err
+	}
+	return nil, err
 }

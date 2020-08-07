@@ -123,6 +123,10 @@ type Response struct {
 }
 
 func FromOriginalToCustomResponse(r *originalHttp.Response) *Response{
+	if r == nil {
+		return nil
+	}
+
 	return &Response{
 		Status:           r.Status,
 		StatusCode:       r.StatusCode,
@@ -142,20 +146,37 @@ func FromOriginalToCustomResponse(r *originalHttp.Response) *Response{
 }
 
 func (r *Response) ToOriginalResponse() *originalHttp.Response{
+	var (
+		newH, newT originalHttp.Header = nil, nil
+		newR *originalHttp.Request = nil
+	)
+
+	if r.Request != nil {
+		newR = r.Request.ToOriginalRequest()
+	}
+
+	if r.Header != nil {
+		newH = r.Header.ToOriginalHeader()
+	}
+
+	if r.Trailer != nil {
+		newT = r.Trailer.ToOriginalHeader()
+	}
+
 	return &originalHttp.Response{
 		Status:           r.Status,
 		StatusCode:       r.StatusCode,
 		Proto:            r.Proto,
 		ProtoMajor:       r.ProtoMajor,
 		ProtoMinor:       r.ProtoMinor,
-		Header:           r.Header.ToOriginalHeader(),
+		Header:           newH,
 		Body:             r.Body,
 		ContentLength:    r.ContentLength,
 		TransferEncoding: r.TransferEncoding,
 		Close:            r.Close,
 		Uncompressed:     r.Uncompressed,
-		Trailer:          r.Trailer.ToOriginalHeader(),
-		Request:          r.Request.ToOriginalRequest(),
+		Trailer:          newT,
+		Request:          newR,
 		TLS:              r.TLS,
 	}
 }

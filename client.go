@@ -251,12 +251,29 @@ func (c *Client) Get(url string) (resp *Response, err error) {
 // canceled.
 // TODO ARCHIMEDES HTTP CLIENT CHANGED THIS METHOD
 func (c *Client) Do(req *Request) (*Response, error) {
-	resolvedHostPort, err := c.resolveServiceInArchimedes(req.RemoteAddr)
+	log.Debug("host in Do: ", req.Host)
+	resolvedHostPort, err := c.resolveServiceInArchimedes(req.Host)
 	if err != nil {
 		panic(err)
 	}
 
-	req.RemoteAddr = resolvedHostPort
+	oldUrl := req.URL
+	newUrl := url.URL{
+		Scheme:     oldUrl.Scheme,
+		Opaque:     oldUrl.Opaque,
+		User:       oldUrl.User,
+		Host:       resolvedHostPort,
+		Path:       oldUrl.Path,
+		RawPath:    oldUrl.RawPath,
+		ForceQuery: oldUrl.ForceQuery,
+		RawQuery:   oldUrl.RawQuery,
+		Fragment:   oldUrl.Fragment,
+	}
+
+	req, err = NewRequest(req.Method, newUrl.String(), req.Body)
+	if err != nil {
+		panic(err)
+	}
 
 	resp, err := c.originalHttpClient.Do(req.ToOriginalRequest())
 
@@ -265,19 +282,25 @@ func (c *Client) Do(req *Request) (*Response, error) {
 
 // TODO ARCHIMEDES HTTP CLIENT CHANGED THIS METHOD
 func (c *Client) resolveServiceInArchimedes(hostPort string) (resolvedHostPort string, err error) {
+	log.Debug("host in resolve: ", hostPort)
 	host, port, err := net.SplitHostPort(hostPort)
 	if err != nil {
 		log.Error("hostPort: ", hostPort)
 		panic(err)
 	}
 
-	archReq, err := NewRequest(originalHttp.MethodPost,
-		archimedes.DefaultHostPort+archimedes.GetServicePath(host), nil)
+	archUrl := url.URL{
+		Scheme:     "http",
+		Host:       archimedes.DefaultHostPort,
+		Path:       archimedes.GetServicePath(host),
+	}
+
+	archReq, err := originalHttp.NewRequest(originalHttp.MethodGet, archUrl.String(), nil)
 	if err != nil {
 		panic(err)
 	}
 
-	resp, err := c.Do(archReq)
+	resp, err := c.originalHttpClient.Do(archReq)
 	if err != nil {
 		panic(err)
 	}
@@ -322,7 +345,7 @@ func (c *Client) resolveServiceInArchimedes(hostPort string) (resolvedHostPort s
 
 	resolvedHostPort = instance.Ip + ":" + portResolved
 
-	log.Debug("resolved %s to %s", hostPort, resolvedHostPort)
+	log.Debugf("resolved %s to %s", hostPort, resolvedHostPort)
 
 	return resolvedHostPort, nil
 }
@@ -334,12 +357,18 @@ func (c *Client) resolveInstanceInArchimedes(hostPort string) (resolvedHostPort 
 		panic(err)
 	}
 
-	archReq, err := NewRequest(originalHttp.MethodPost, archimedes.DefaultHostPort+archimedes.GetInstancePath(host), nil)
+	archUrl := url.URL{
+		Scheme:     "http",
+		Host:       archimedes.DefaultHostPort,
+		Path:       archimedes.GetInstancePath(host),
+	}
+
+	archReq, err := originalHttp.NewRequest(originalHttp.MethodGet, archUrl.String(),nil)
 	if err != nil {
 		panic(err)
 	}
 
-	resp, err := c.Do(archReq)
+	resp, err := c.originalHttpClient.Do(archReq)
 	if err != nil {
 		panic(err)
 	}
@@ -377,7 +406,7 @@ func (c *Client) resolveInstanceInArchimedes(hostPort string) (resolvedHostPort 
 
 	resolvedHostPort = completedInstance.Instance.Ip + ":" + portResolved
 
-	log.Debug("resolved %s to %s", hostPort, resolvedHostPort)
+	log.Debugf("resolved %s to %s", hostPort, resolvedHostPort)
 
 	return resolvedHostPort, nil
 }
