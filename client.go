@@ -120,6 +120,8 @@ func (c *Client) resolveServiceInArchimedes(hostPort string) (resolvedHostPort s
 		panic(err)
 	}
 
+	log.Debugf("got service %+v", service)
+
 	portWithProto, err := nat.NewPort(genericutils.TCP, port)
 	if err != nil {
 		panic(err)
@@ -188,6 +190,8 @@ func (c *Client) resolveInstanceInArchimedes(hostPort string) (resolvedHostPort 
 	if err != nil {
 		panic(err)
 	}
+
+	log.Debugf("got instance %+v", completedInstance)
 
 	_, ok := completedInstance.Ports[portWithProto]
 	if !ok {
