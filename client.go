@@ -10,19 +10,12 @@
 package http
 
 import (
-	"encoding/json"
-	"errors"
-	"fmt"
 	"io"
-	"math/rand"
-	"net"
 	originalHttp "net/http"
 	"net/url"
 	"strings"
 
 	archimedes "github.com/bruno-anjos/archimedes/api"
-	genericutils "github.com/bruno-anjos/solution-utils"
-	"github.com/docker/go-connections/nat"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -79,137 +72,7 @@ func (c *Client) Do(req *Request) (*Response, error) {
 
 // TODO ARCHIMEDES HTTP CLIENT CHANGED THIS METHOD
 func (c *Client) resolveServiceInArchimedes(hostPort string) (resolvedHostPort string, err error) {
-	log.Debug("host in resolve: ", hostPort)
-	host, port, err := net.SplitHostPort(hostPort)
-	if err != nil {
-		log.Error("hostPort: ", hostPort)
-		panic(err)
-	}
-
-	archUrl := url.URL{
-		Scheme: "http",
-		Host:   archimedes.DefaultHostPort,
-		Path:   archimedes.GetServicePath(host),
-	}
-
-	archReq, err := originalHttp.NewRequest(originalHttp.MethodGet, archUrl.String(), nil)
-	if err != nil {
-		panic(err)
-	}
-
-	resp, err := c.Client.Do(archReq)
-	if err != nil {
-		panic(err)
-	}
-
-	if resp.StatusCode == originalHttp.StatusNotFound {
-		log.Debugf("could not resolve service %s", hostPort)
-		resolvedHostPort, err = c.resolveInstanceInArchimedes(hostPort)
-		if err != nil {
-			return "", err
-		}
-		return resolvedHostPort, nil
-	} else if resp.StatusCode != originalHttp.StatusOK {
-		return "", errors.New(
-			fmt.Sprintf("got status %d while resolving %s in archimedes", resp.StatusCode, hostPort))
-	}
-
-	var service archimedes.CompletedServiceDTO
-	err = json.NewDecoder(resp.Body).Decode(&service)
-	if err != nil {
-		panic(err)
-	}
-
-	log.Debugf("got service %+v", service)
-
-	portWithProto, err := nat.NewPort(genericutils.TCP, port)
-	if err != nil {
-		panic(err)
-	}
-
-	_, ok := service.Ports[portWithProto]
-	if !ok {
-		return "", errors.New(fmt.Sprintf("port is not valid for service %s", host))
-	}
-
-	randInstanceId := service.InstancesIds[rand.Intn(len(service.InstancesIds))]
-	instance := service.InstancesMap[randInstanceId]
-
-	var portResolved string
-	if instance.Local {
-		portResolved = portWithProto.Port()
-	} else {
-		portResolved = instance.PortTranslation[portWithProto][0].HostPort
-	}
-
-	resolvedHostPort = instance.Ip + ":" + portResolved
-
-	log.Debugf("resolved %s to %s", hostPort, resolvedHostPort)
-
-	return resolvedHostPort, nil
-}
-
-// TODO ARCHIMEDES HTTP CLIENT CHANGED THIS METHOD
-func (c *Client) resolveInstanceInArchimedes(hostPort string) (resolvedHostPort string, err error) {
-	host, port, err := net.SplitHostPort(hostPort)
-	if err != nil {
-		panic(err)
-	}
-
-	archUrl := url.URL{
-		Scheme: "http",
-		Host:   archimedes.DefaultHostPort,
-		Path:   archimedes.GetInstancePath(host),
-	}
-
-	archReq, err := originalHttp.NewRequest(originalHttp.MethodGet, archUrl.String(), nil)
-	if err != nil {
-		panic(err)
-	}
-
-	resp, err := c.Client.Do(archReq)
-	if err != nil {
-		panic(err)
-	}
-
-	if resp.StatusCode == originalHttp.StatusNotFound {
-		log.Debugf("could not resolve instance %s", hostPort)
-		return hostPort, nil
-	} else if resp.StatusCode != originalHttp.StatusOK {
-		return "", errors.New(
-			fmt.Sprintf("got status %d while resolving %s in archimedes", resp.StatusCode, hostPort))
-	}
-
-	var completedInstance archimedes.CompletedInstanceDTO
-	err = json.NewDecoder(resp.Body).Decode(&completedInstance)
-	if err != nil {
-		panic(err)
-	}
-
-	portWithProto, err := nat.NewPort(genericutils.TCP, port)
-	if err != nil {
-		panic(err)
-	}
-
-	log.Debugf("got instance %+v", completedInstance)
-
-	_, ok := completedInstance.Ports[portWithProto]
-	if !ok {
-		return "", errors.New(fmt.Sprintf("port is not valid for service %s", host))
-	}
-
-	var portResolved string
-	if completedInstance.Instance.Local {
-		portResolved = portWithProto.Port()
-	} else {
-		portResolved = completedInstance.Instance.PortTranslation[portWithProto][0].HostPort
-	}
-
-	resolvedHostPort = completedInstance.Instance.Ip + ":" + portResolved
-
-	log.Debugf("resolved %s to %s", hostPort, resolvedHostPort)
-
-	return resolvedHostPort, nil
+	return archimedes.ResolveServiceInArchimedes(&c.Client, hostPort)
 }
 
 // Post issues a POST to the specified URL.
