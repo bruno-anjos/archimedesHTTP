@@ -64,12 +64,14 @@ func (c *Client) Do(req *Request) (*Response, error) {
 	value, ok := c.cache.Load(hostPort)
 	if ok {
 		resolvedHostPort = value.(AddressCacheValue)
+		log.Debugf("resolved %s to %s using cache", hostPort, resolvedHostPort)
 		usingCache = true
 	} else {
 		resolvedHostPort, err = c.resolveServiceInArchimedes(hostPort)
 		if err != nil {
 			panic(err)
 		}
+		log.Debugf("resolved %s to %s in archimedes", hostPort, resolvedHostPort)
 	}
 
 	oldUrl := req.URL
@@ -94,7 +96,7 @@ func (c *Client) Do(req *Request) (*Response, error) {
 	switch err.(type) {
 	case net.Error:
 		if usingCache && (err.(net.Error).Timeout() || strings.Contains(err.Error(), "no route to host")) {
-			log.Debugf("got timeout using cached addr %s, will resolve on archimedes", resolvedHostPort)
+			log.Debugf("got timeout using cached addr %s, will refresh cache entry", resolvedHostPort)
 			c.cache.Delete(hostPort)
 			resolvedHostPort, err = c.resolveServiceInArchimedes(hostPort)
 			if err != nil {
