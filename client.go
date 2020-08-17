@@ -11,16 +11,25 @@ package http
 
 import (
 	"io"
+	"net"
 	originalHttp "net/http"
 	"net/url"
 	"strings"
+	"sync"
 
 	archimedes "github.com/bruno-anjos/archimedes/api"
 	log "github.com/sirupsen/logrus"
 )
 
+type (
+	AddressCache      = sync.Map
+	AddressCacheKey   = string
+	AddressCacheValue = string
+)
+
 type Client struct {
 	originalHttp.Client
+	cache AddressCache
 }
 
 var ErrUseLastResponse = originalHttp.ErrUseLastResponse
@@ -32,6 +41,7 @@ type RoundTripper = originalHttp.RoundTripper
 func Get(url string) (resp *Response, err error) {
 	return DefaultClient.Get(url)
 }
+
 func (c *Client) Get(url string) (resp *Response, err error) {
 	req, err := originalHttp.NewRequest("GET", url, nil)
 	if err != nil {
@@ -42,9 +52,24 @@ func (c *Client) Get(url string) (resp *Response, err error) {
 
 func (c *Client) Do(req *Request) (*Response, error) {
 	log.Debug("host in Do: ", req.Host)
-	resolvedHostPort, err := c.resolveServiceInArchimedes(req.Host)
-	if err != nil {
-		panic(err)
+
+	hostPort := req.Host
+
+	var (
+		resolvedHostPort string
+		usingCache, ok   bool
+		err              error
+	)
+
+	value, ok := c.cache.Load(hostPort)
+	if ok {
+		resolvedHostPort = value.(AddressCacheValue)
+		usingCache = true
+	} else {
+		resolvedHostPort, err = c.resolveServiceInArchimedes(hostPort)
+		if err != nil {
+			panic(err)
+		}
 	}
 
 	oldUrl := req.URL
@@ -66,13 +91,34 @@ func (c *Client) Do(req *Request) (*Response, error) {
 	}
 
 	resp, err := c.Client.Do(req)
+	switch err.(type) {
+	case net.Error:
+		if usingCache && (err.(net.Error).Timeout() || strings.Contains(err.Error(), "no route to host")) {
+			log.Debugf("got timeout using cached addr %s, will resolve on archimedes", resolvedHostPort)
+			c.cache.Delete(hostPort)
+			resolvedHostPort, err = c.resolveServiceInArchimedes(hostPort)
+			if err != nil {
+				panic(err)
+			}
+			newUrl.Host = resolvedHostPort
+			req, err = originalHttp.NewRequest(req.Method, newUrl.String(), req.Body)
+			if err != nil {
+				panic(err)
+			}
+
+			resp, err = c.Client.Do(req)
+		}
+	}
 
 	return resp, err
 }
 
 // TODO ARCHIMEDES HTTP CLIENT CHANGED THIS METHOD
 func (c *Client) resolveServiceInArchimedes(hostPort string) (resolvedHostPort string, err error) {
-	return archimedes.ResolveServiceInArchimedes(&c.Client, hostPort)
+	resolvedHostPort, err = archimedes.ResolveServiceInArchimedes(&c.Client, hostPort)
+	c.cache.Store(hostPort, resolvedHostPort)
+
+	return resolvedHostPort, err
 }
 
 // Post issues a POST to the specified URL.
