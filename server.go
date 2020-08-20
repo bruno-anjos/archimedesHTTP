@@ -11,7 +11,7 @@ import (
 	originalHttp "net/http"
 	"time"
 
-	archimedes "github.com/bruno-anjos/archimedes/api"
+	deployer "github.com/bruno-anjos/deployer/api"
 )
 
 const (
@@ -74,7 +74,7 @@ var (
 //
 // Serve always returns a non-nil error.
 func Serve(l net.Listener, handler originalHttp.Handler) error {
-	go archimedes.SendHeartbeatInstanceToArchimedes(archimedes.DefaultHostPort)
+	go deployer.SendHeartbeatInstanceToDeployer(deployer.DefaultHostPort)
 	srv := &originalHttp.Server{Handler: handler}
 	return srv.Serve(l)
 }
@@ -92,7 +92,7 @@ func Serve(l net.Listener, handler originalHttp.Handler) error {
 //
 // ServeTLS always returns a non-nil error.
 func ServeTLS(l net.Listener, handler originalHttp.Handler, certFile, keyFile string) error {
-	go archimedes.SendHeartbeatInstanceToArchimedes(archimedes.DefaultHostPort)
+	go deployer.SendHeartbeatInstanceToDeployer(deployer.DefaultHostPort)
 	srv := &originalHttp.Server{Handler: handler}
 	return srv.ServeTLS(l, certFile, keyFile)
 }
@@ -106,7 +106,7 @@ func ServeTLS(l net.Listener, handler originalHttp.Handler, certFile, keyFile st
 // ListenAndServe always returns a non-nil error.
 // TODO ARCHIMEDES HTTP CLIENT CHANGED THIS METHOD
 func ListenAndServe(addr string, handler originalHttp.Handler) error {
-	go archimedes.SendHeartbeatInstanceToArchimedes(archimedes.DefaultHostPort)
+	go deployer.SendHeartbeatInstanceToDeployer(deployer.DefaultHostPort)
 	server := &originalHttp.Server{Addr: addr, Handler: handler}
 	return server.ListenAndServe()
 }
@@ -117,7 +117,7 @@ func ListenAndServe(addr string, handler originalHttp.Handler) error {
 // is signed by a certificate authority, the certFile should be the concatenation
 // of the server's certificate, any intermediates, and the CA's certificate.
 func ListenAndServeTLS(addr, certFile, keyFile string, handler originalHttp.Handler) error {
-	go archimedes.SendHeartbeatInstanceToArchimedes(archimedes.DefaultHostPort)
+	go deployer.SendHeartbeatInstanceToDeployer(deployer.DefaultHostPort)
 	server := &originalHttp.Server{Addr: addr, Handler: handler}
 	return server.ListenAndServeTLS(certFile, keyFile)
 }
