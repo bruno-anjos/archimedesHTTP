@@ -16,6 +16,7 @@ import (
 	"net/url"
 	"strings"
 	"sync"
+	"time"
 
 	archimedes "github.com/bruno-anjos/archimedes/api"
 	log "github.com/sirupsen/logrus"
@@ -27,9 +28,14 @@ type (
 	AddressCacheValue = string
 )
 
+const (
+	refreshCacheTimeout = 30
+)
+
 type Client struct {
 	originalHttp.Client
-	cache AddressCache
+	cache          AddressCache
+	refreshingChan chan struct{}
 }
 
 var ErrUseLastResponse = originalHttp.ErrUseLastResponse
@@ -50,8 +56,38 @@ func (c *Client) Get(url string) (resp *Response, err error) {
 	return c.Do(req)
 }
 
+func (c *Client) refreshCachePeriodically() {
+	cacheTicker := time.NewTicker(refreshCacheTimeout * time.Second)
+
+	var err error
+	for {
+		c.cache.Range(func(key, value interface{}) bool {
+			hostPort := key.(AddressCacheKey)
+			_, err = c.resolveServiceInArchimedes(hostPort)
+			if err != nil {
+				return false
+			}
+			return true
+		})
+
+		if err != nil {
+			break
+		}
+
+		<-cacheTicker.C
+	}
+
+	close(c.refreshingChan)
+}
+
 func (c *Client) Do(req *Request) (*Response, error) {
 	log.Debug("host in Do: ", req.Host)
+
+	select {
+	case <-c.refreshingChan:
+		go c.refreshCachePeriodically()
+	default:
+	}
 
 	hostPort := req.Host
 
