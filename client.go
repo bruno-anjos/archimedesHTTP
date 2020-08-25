@@ -120,8 +120,8 @@ func (c *Client) Do(req *Request) (*Response, error) {
 	c.beforeMiddlewares.Range(func(key, value interface{}) bool {
 		midId := key.(middlewaresMapKey)
 		midFunc := key.(middlewaresMapValue)
-		log.Debugf("calling after middleware %s", midId)
-		midFunc(reqId, req)
+		log.Debugf("calling before middleware %s", midId)
+		go midFunc(reqId, req)
 		return true
 	})
 
@@ -167,8 +167,8 @@ func (c *Client) Do(req *Request) (*Response, error) {
 	c.afterMiddlewares.Range(func(key, value interface{}) bool {
 		midId := key.(middlewaresMapKey)
 		midFunc := key.(middlewaresMapValue)
-		log.Debugf("calling before middleware %s", midId)
-		midFunc(reqId, req)
+		log.Debugf("calling after middleware %s", midId)
+		go midFunc(reqId, req)
 		return true
 	})
 
