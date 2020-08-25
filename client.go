@@ -10,6 +10,7 @@
 package http
 
 import (
+	"fmt"
 	"io"
 	"net"
 	originalHttp "net/http"
@@ -19,11 +20,11 @@ import (
 	"time"
 
 	archimedes "github.com/bruno-anjos/archimedes/api"
+	"github.com/google/uuid"
 	log "github.com/sirupsen/logrus"
 )
 
 type (
-	AddressCache      = sync.Map
 	AddressCacheKey   = string
 	AddressCacheValue = string
 )
@@ -32,10 +33,19 @@ const (
 	refreshCacheTimeout = 30
 )
 
+type (
+	MiddlewareFunc = func(reqId string, req *Request)
+
+	middlewaresMapKey   = string
+	middlewaresMapValue = MiddlewareFunc
+)
+
 type Client struct {
 	originalHttp.Client
-	cache          AddressCache
-	refreshingChan chan struct{}
+	cache             sync.Map
+	refreshingChan    chan struct{}
+	beforeMiddlewares sync.Map
+	afterMiddlewares  sync.Map
 }
 
 var ErrUseLastResponse = originalHttp.ErrUseLastResponse
@@ -46,6 +56,23 @@ type RoundTripper = originalHttp.RoundTripper
 
 func Get(url string) (resp *Response, err error) {
 	return DefaultClient.Get(url)
+}
+
+// RegisterMiddleware registers a middleware with id midId and a function midFunc that is ran everytime a request
+// is done. If afterResolving is true the function is called with the resulting request after resolving the request url
+// through archimedes. If afterResolving is false the function is called with the original request.
+func (c *Client) RegisterMiddleware(midId string, midFunc MiddlewareFunc, afterResolving bool) {
+	var loaded bool
+	if afterResolving {
+		_, loaded = c.afterMiddlewares.LoadOrStore(midId, midFunc)
+	} else {
+		_, loaded = c.beforeMiddlewares.LoadOrStore(midId, midFunc)
+	}
+
+	if loaded {
+		panic(fmt.Sprintf("error registering: middleware with id %s already exists", midId))
+	}
+	log.Debugf("registered middleware %s", midId)
 }
 
 func (c *Client) Get(url string) (resp *Response, err error) {
@@ -89,6 +116,15 @@ func (c *Client) Do(req *Request) (*Response, error) {
 	default:
 	}
 
+	reqId := uuid.New().String()
+	c.beforeMiddlewares.Range(func(key, value interface{}) bool {
+		midId := key.(middlewaresMapKey)
+		midFunc := key.(middlewaresMapValue)
+		log.Debugf("calling after middleware %s", midId)
+		midFunc(reqId, req)
+		return true
+	})
+
 	hostPort := req.Host
 
 	var (
@@ -127,6 +163,14 @@ func (c *Client) Do(req *Request) (*Response, error) {
 	if err != nil {
 		panic(err)
 	}
+
+	c.afterMiddlewares.Range(func(key, value interface{}) bool {
+		midId := key.(middlewaresMapKey)
+		midFunc := key.(middlewaresMapValue)
+		log.Debugf("calling before middleware %s", midId)
+		midFunc(reqId, req)
+		return true
+	})
 
 	resp, err := c.Client.Do(req)
 	switch err.(type) {
