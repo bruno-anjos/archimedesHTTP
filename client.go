@@ -61,6 +61,10 @@ func Get(url string) (resp *Response, err error) {
 // RegisterMiddleware registers a middleware with id midId and a function midFunc that is ran everytime a request
 // is done. If afterResolving is true the function is called with the resulting request after resolving the request url
 // through archimedes. If afterResolving is false the function is called with the original request.
+//
+// Even though midFunc receives a pointer to a request, it should only read fields from it and never change them,
+// since there are no guarantees on the order the different middlewares will be called.
+// The request is only passed as a pointer to avoid making a copy for each middleware.
 func (c *Client) RegisterMiddleware(midId string, midFunc MiddlewareFunc, afterResolving bool) {
 	var loaded bool
 	if afterResolving {
