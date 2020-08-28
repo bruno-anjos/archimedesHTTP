@@ -19,8 +19,10 @@ import (
 	"sync"
 	"time"
 
-	archimedes "github.com/bruno-anjos/archimedes/api"
+	"github.com/bruno-anjos/cloud-edge-deployment/pkg/archimedes"
+	"github.com/docker/go-connections/nat"
 	"github.com/google/uuid"
+	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -46,6 +48,7 @@ type Client struct {
 	refreshingChan    chan struct{}
 	beforeMiddlewares sync.Map
 	afterMiddlewares  sync.Map
+	archimedesClient  *archimedes.ArchimedesClient
 }
 
 var ErrUseLastResponse = originalHttp.ErrUseLastResponse
@@ -200,8 +203,31 @@ func (c *Client) Do(req *Request) (*Response, error) {
 }
 
 // TODO ARCHIMEDES HTTP CLIENT CHANGED THIS METHOD
+// WARN this is not really thread safe for now
 func (c *Client) resolveServiceInArchimedes(hostPort string) (resolvedHostPort string, err error) {
-	resolvedHostPort, err = archimedes.ResolveServiceInArchimedes(&c.Client, hostPort)
+	if c.archimedesClient == nil {
+		c.archimedesClient = archimedes.NewArchimedesClient(archimedes.ArchimedesServiceName)
+	}
+
+	host, rawPort, err := net.SplitHostPort(hostPort)
+	if err != nil {
+		log.Error("hostport: ", hostPort)
+		panic(err)
+	}
+
+	port := nat.Port(rawPort + "/tcp")
+	rHost, rPort, status := c.archimedesClient.Resolve(host, port)
+	switch status {
+	case StatusNotFound:
+		log.Debugf("could not resolve %s", hostPort)
+		return hostPort, nil
+	case StatusOK:
+	default:
+		return "", errors.New(
+			fmt.Sprintf("got status %d while resolving %s in archimedes", status, hostPort))
+	}
+
+	resolvedHostPort = rHost + ":" + rPort
 	c.cache.Store(hostPort, resolvedHostPort)
 
 	return resolvedHostPort, err
