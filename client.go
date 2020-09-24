@@ -42,13 +42,27 @@ type (
 	middlewaresMapValue = MiddlewareFunc
 )
 
+// Client in order for this client to use archimedes properly, protocols that
+// use http for handshake and are stream oriented should behave in two possible
+// ways:
+//
+//	1. if the interaction is stateful it should only restart the connection when
+//	it is ready to lose server side state, since archimedes might have cached a
+//	different url for the corresponding service, meaning that it will connect to
+//	a different server when it is established for the second time, thus losing
+//	whatever state was in the server.
+//
+//	2. if the interaction is stateless it should restart periodically, in order
+//	to reflect possible changes archimedes might received. The speed at which the
+//	connection is restarted is proportional to the freshness of the host url
+//	being used to access a given service.
 type Client struct {
 	originalHttp.Client
 	cache             sync.Map
 	refreshingChan    chan struct{}
 	beforeMiddlewares sync.Map
 	afterMiddlewares  sync.Map
-	archimedesClient  *archimedes.ArchimedesClient
+	archimedesClient  *archimedes.Client
 }
 
 var ErrUseLastResponse = originalHttp.ErrUseLastResponse
@@ -218,6 +232,8 @@ func (c *Client) resolveServiceInArchimedes(hostPort string) (resolvedHostPort s
 	port := nat.Port(rawPort + "/tcp")
 	rHost, rPort, status := c.archimedesClient.Resolve(host, port)
 	switch status {
+	case StatusSeeOther:
+
 	case StatusNotFound:
 		log.Debugf("could not resolve %s", hostPort)
 		return hostPort, nil
