@@ -220,7 +220,7 @@ func (c *Client) Do(req *Request) (*Response, error) {
 // WARN this is not really thread safe for now
 func (c *Client) resolveServiceInArchimedes(hostPort string) (resolvedHostPort string, err error) {
 	if c.archimedesClient == nil {
-		c.archimedesClient = archimedes.NewArchimedesClient(archimedes.ArchimedesServiceName)
+		c.archimedesClient = archimedes.NewArchimedesClient(archimedes.ServiceName)
 	}
 
 	host, rawPort, err := net.SplitHostPort(hostPort)
