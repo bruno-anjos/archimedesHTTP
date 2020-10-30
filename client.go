@@ -15,24 +15,31 @@ import (
 	"net"
 	originalHttp "net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/bruno-anjos/cloud-edge-deployment/pkg/archimedes"
 	"github.com/docker/go-connections/nat"
+	"github.com/golang/geo/s2"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 )
 
 type (
+	CacheEntry = struct {
+		Stale    bool
+		Resolved string
+	}
 	AddressCacheKey   = string
-	AddressCacheValue = string
+	AddressCacheValue = *CacheEntry
 )
 
 const (
-	refreshCacheTimeout = 30
+	CacheExpiringTime   = 1 * time.Minute
+	refreshCacheTimeout = 10
 )
 
 type (
@@ -59,10 +66,12 @@ type (
 type Client struct {
 	originalHttp.Client
 	cache             sync.Map
-	refreshingChan    chan struct{}
 	beforeMiddlewares sync.Map
 	afterMiddlewares  sync.Map
 	archimedesClient  *archimedes.Client
+	location          s2.CellID
+	initialized       bool
+	sync.RWMutex
 }
 
 var ErrUseLastResponse = originalHttp.ErrUseLastResponse
@@ -82,6 +91,15 @@ func Get(url string) (resp *Response, err error) {
 // Even though midFunc receives a pointer to a request, it should only read fields from it and never change them,
 // since there are no guarantees on the order the different middlewares will be called.
 // The request is only passed as a pointer to avoid making a copy for each middleware.
+func (c *Client) InitArchimedesClient(host string, port int, location s2.LatLng) {
+	c.Lock()
+	c.archimedesClient = archimedes.NewArchimedesClient(host + ":" + strconv.Itoa(port))
+	c.Unlock()
+	c.location = s2.CellIDFromLatLng(location)
+	c.initialized = true
+	go c.refreshCachePeriodically()
+}
+
 func (c *Client) RegisterMiddleware(midId string, midFunc MiddlewareFunc, afterResolving bool) {
 	var loaded bool
 	if afterResolving {
@@ -106,35 +124,33 @@ func (c *Client) Get(url string) (resp *Response, err error) {
 
 func (c *Client) refreshCachePeriodically() {
 	cacheTicker := time.NewTicker(refreshCacheTimeout * time.Second)
+	log.Debugf("setting up cache refreshing")
 
-	var err error
 	for {
+		<-cacheTicker.C
+
+		log.Debugf("refreshing cache")
+
+		staleEntries := map[string]interface{}{}
 		c.cache.Range(func(key, value interface{}) bool {
 			hostPort := key.(AddressCacheKey)
-			_, err = c.resolveServiceInArchimedes(hostPort)
-			if err != nil {
-				return false
+			entry := value.(AddressCacheValue)
+			if entry.Stale {
+				log.Debugf("adding entry for %s as stale", hostPort)
+				staleEntries[hostPort] = nil
 			}
 			return true
 		})
 
-		if err != nil {
-			break
+		for hostPort := range staleEntries {
+			c.cache.Delete(hostPort)
 		}
-
-		<-cacheTicker.C
 	}
-
-	close(c.refreshingChan)
 }
 
 func (c *Client) Do(req *Request) (*Response, error) {
-	log.Debug("host in Do: ", req.Host)
-
-	select {
-	case <-c.refreshingChan:
-		go c.refreshCachePeriodically()
-	default:
+	if !c.initialized {
+		panic("client has not been initialized")
 	}
 
 	reqId := uuid.New().String()
@@ -156,7 +172,7 @@ func (c *Client) Do(req *Request) (*Response, error) {
 
 	value, ok := c.cache.Load(hostPort)
 	if ok {
-		resolvedHostPort = value.(AddressCacheValue)
+		resolvedHostPort = value.(AddressCacheValue).Resolved
 		log.Debugf("resolved %s to %s using cache", hostPort, resolvedHostPort)
 		usingCache = true
 	} else {
@@ -220,7 +236,11 @@ func (c *Client) Do(req *Request) (*Response, error) {
 // WARN this is not really thread safe for now
 func (c *Client) resolveServiceInArchimedes(hostPort string) (resolvedHostPort string, err error) {
 	if c.archimedesClient == nil {
-		c.archimedesClient = archimedes.NewArchimedesClient(archimedes.ServiceName)
+		c.Lock()
+		if c.archimedesClient == nil {
+			c.archimedesClient = archimedes.NewArchimedesClient("addr_unset")
+		}
+		c.Unlock()
 	}
 
 	host, rawPort, err := net.SplitHostPort(hostPort)
@@ -230,7 +250,17 @@ func (c *Client) resolveServiceInArchimedes(hostPort string) (resolvedHostPort s
 	}
 
 	port := nat.Port(rawPort + "/tcp")
-	rHost, rPort, status := c.archimedesClient.Resolve(host, port)
+
+	deploymentId := strings.Split(host, "-")[0]
+	start := time.Now()
+	reqId, err := uuid.NewUUID()
+	if err != nil {
+		panic(err)
+	}
+
+	c.RLock()
+	rHost, rPort, status := c.archimedesClient.Resolve(host, port, deploymentId, c.location, reqId.String())
+	c.RUnlock()
 	switch status {
 	case StatusSeeOther:
 
@@ -240,11 +270,14 @@ func (c *Client) resolveServiceInArchimedes(hostPort string) (resolvedHostPort s
 	case StatusOK:
 	default:
 		return "", errors.New(
-			fmt.Sprintf("got status %d while resolving %s in archimedes", status, hostPort))
+			fmt.Sprintf("got status %d while resolving %s in archimedes (req %s took %f)", status, hostPort,
+				reqId.String(), time.Since(start).Seconds()))
 	}
 
 	resolvedHostPort = rHost + ":" + rPort
-	c.cache.Store(hostPort, resolvedHostPort)
+	cacheEntry := &CacheEntry{Stale: false, Resolved: resolvedHostPort}
+	c.cache.Store(hostPort, cacheEntry)
+	go waitAndSetValueAsStale(cacheEntry)
 
 	return resolvedHostPort, err
 }
@@ -311,4 +344,9 @@ func Post(url, contentType string, body io.Reader) (resp *Response, err error) {
 
 func PostForm(url string, data url.Values) (resp *Response, err error) {
 	return DefaultClient.PostForm(url, data)
+}
+
+func waitAndSetValueAsStale(entry *CacheEntry) {
+	time.Sleep(CacheExpiringTime)
+	entry.Stale = true
 }

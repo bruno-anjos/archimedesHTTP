@@ -1,6 +1,6 @@
 module github.com/bruno-anjos/archimedesHTTPClient
 
-go 1.13
+go 1.14
 
 require (
 	github.com/bruno-anjos/cloud-edge-deployment v0.0.1
@@ -8,4 +8,6 @@ require (
 	github.com/sirupsen/logrus v1.6.0
 )
 
-replace github.com/bruno-anjos/cloud-edge-deployment v0.0.1 => ./../cloud-edge-deployment
+replace (
+	github.com/bruno-anjos/cloud-edge-deployment latest => ../cloud-edge-deployment
+)
