@@ -10,36 +10,69 @@
 package http
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"net"
 	originalHttp "net/http"
 	"net/url"
+	"os"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/bruno-anjos/cloud-edge-deployment/pkg/archimedes"
+	"github.com/bruno-anjos/cloud-edge-deployment/pkg/archimedes/client"
 	"github.com/docker/go-connections/nat"
 	"github.com/golang/geo/s2"
 	"github.com/google/uuid"
-	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 )
 
 type (
-	CacheEntry = struct {
-		Stale    bool
-		Resolved string
+	cacheEntry struct {
+		stale    bool
+		resolved string
+		sync.RWMutex
 	}
-	AddressCacheKey   = string
-	AddressCacheValue = *CacheEntry
+	addressCacheKey   = string
+	addressCacheValue = *cacheEntry
 )
 
+func newCacheEntry(resolved string) *cacheEntry {
+	return &cacheEntry{
+		stale:    false,
+		resolved: resolved,
+		RWMutex:  sync.RWMutex{},
+	}
+}
+
+func (c *cacheEntry) isStale() bool {
+	c.RLock()
+	defer c.RUnlock()
+	return c.stale
+}
+
+func (c *cacheEntry) setStale(stale bool) {
+	c.Lock()
+	defer c.Unlock()
+	c.stale = stale
+}
+
+func (c *cacheEntry) getResolved() string {
+	c.RLock()
+	defer c.RUnlock()
+	return c.resolved
+}
+
 const (
-	CacheExpiringTime   = 1 * time.Minute
-	refreshCacheTimeout = 10
+	CacheExpiringTime      = 1 * time.Minute
+	refreshCacheTimeout    = 30 * time.Second
+	ResetToFallbackTimeout = 2 * time.Minute
+	FallbackEnvVar         = "FALLBACK_URL"
+
+	DefaultArchimedesPort = 50000
 )
 
 type (
@@ -68,7 +101,8 @@ type Client struct {
 	cache             sync.Map
 	beforeMiddlewares sync.Map
 	afterMiddlewares  sync.Map
-	archimedesClient  *archimedes.Client
+	archimedesClient  *client.Client
+	fallbackAddr      string
 	location          s2.CellID
 	initialized       bool
 	sync.RWMutex
@@ -84,6 +118,31 @@ func Get(url string) (resp *Response, err error) {
 	return DefaultClient.Get(url)
 }
 
+// InitArchimedesClient initializes the archimedes client with the starting archimedes server host, the port to the
+// archimedes server and the location where the user is at the moment.
+func (c *Client) InitArchimedesClient(host string, port int, location s2.LatLng) {
+	c.Lock()
+	c.archimedesClient = client.NewArchimedesClient(host + ":" + strconv.Itoa(port))
+	c.location = s2.CellIDFromLatLng(location)
+	c.initialized = true
+
+	fallbackAddr, exists := os.LookupEnv(FallbackEnvVar)
+	if !exists {
+		log.Panicf("could not load env var %s", FallbackEnvVar)
+	}
+
+	c.fallbackAddr = fallbackAddr
+	c.Unlock()
+	go c.refreshCachePeriodically()
+	go c.resetToFallbackPeriodically()
+}
+
+func (c *Client) SetLocation(location s2.LatLng) {
+	c.Lock()
+	defer c.Unlock()
+	c.location = s2.CellIDFromLatLng(location)
+}
+
 // RegisterMiddleware registers a middleware with id midId and a function midFunc that is ran everytime a request
 // is done. If afterResolving is true the function is called with the resulting request after resolving the request url
 // through archimedes. If afterResolving is false the function is called with the original request.
@@ -91,15 +150,6 @@ func Get(url string) (resp *Response, err error) {
 // Even though midFunc receives a pointer to a request, it should only read fields from it and never change them,
 // since there are no guarantees on the order the different middlewares will be called.
 // The request is only passed as a pointer to avoid making a copy for each middleware.
-func (c *Client) InitArchimedesClient(host string, port int, location s2.LatLng) {
-	c.Lock()
-	c.archimedesClient = archimedes.NewArchimedesClient(host + ":" + strconv.Itoa(port))
-	c.Unlock()
-	c.location = s2.CellIDFromLatLng(location)
-	c.initialized = true
-	go c.refreshCachePeriodically()
-}
-
 func (c *Client) RegisterMiddleware(midId string, midFunc MiddlewareFunc, afterResolving bool) {
 	var loaded bool
 	if afterResolving {
@@ -123,7 +173,7 @@ func (c *Client) Get(url string) (resp *Response, err error) {
 }
 
 func (c *Client) refreshCachePeriodically() {
-	cacheTicker := time.NewTicker(refreshCacheTimeout * time.Second)
+	cacheTicker := time.NewTicker(refreshCacheTimeout)
 	log.Debugf("setting up cache refreshing")
 
 	for {
@@ -133,9 +183,9 @@ func (c *Client) refreshCachePeriodically() {
 
 		staleEntries := map[string]interface{}{}
 		c.cache.Range(func(key, value interface{}) bool {
-			hostPort := key.(AddressCacheKey)
-			entry := value.(AddressCacheValue)
-			if entry.Stale {
+			hostPort := key.(addressCacheKey)
+			entry := value.(addressCacheValue)
+			if entry.isStale() {
 				log.Debugf("adding entry for %s as stale", hostPort)
 				staleEntries[hostPort] = nil
 			}
@@ -147,6 +197,24 @@ func (c *Client) refreshCachePeriodically() {
 		}
 	}
 }
+
+func (c *Client) resetToFallbackPeriodically() {
+	fallbackTicker := time.NewTicker(ResetToFallbackTimeout)
+	log.Debug("setting up fallback reset")
+
+	for {
+		<-fallbackTicker.C
+
+		log.Debugf("resetting to fallback")
+		c.Lock()
+		c.archimedesClient.SetHostPort(c.fallbackAddr + ":" + strconv.Itoa(archimedes.Port))
+		c.Unlock()
+	}
+}
+
+const (
+	maxTries = 5
+)
 
 func (c *Client) Do(req *Request) (*Response, error) {
 	if !c.initialized {
@@ -168,19 +236,30 @@ func (c *Client) Do(req *Request) (*Response, error) {
 		resolvedHostPort string
 		usingCache, ok   bool
 		err              error
+		found            bool
 	)
 
 	value, ok := c.cache.Load(hostPort)
 	if ok {
-		resolvedHostPort = value.(AddressCacheValue).Resolved
-		log.Debugf("resolved %s to %s using cache", hostPort, resolvedHostPort)
+		entry := value.(addressCacheValue)
+		resolvedHostPort = entry.getResolved()
+		log.Infof("resolved %s to %s using cache", hostPort, resolvedHostPort)
 		usingCache = true
 	} else {
-		resolvedHostPort, err = c.resolveServiceInArchimedes(hostPort)
-		if err != nil {
-			panic(err)
+		for i := 0; i < maxTries; i++ {
+			resolvedHostPort, found, err = c.ResolveServiceInArchimedes(hostPort)
+			if err != nil {
+				panic(err)
+			}
+
+			if found {
+				break
+			}
+
+			time.Sleep(time.Duration(1*(i+1)) * time.Second)
 		}
-		log.Debugf("resolved %s to %s in archimedes", hostPort, resolvedHostPort)
+
+		log.Infof("resolved %s to %s in archimedes", hostPort, resolvedHostPort)
 	}
 
 	oldUrl := req.URL
@@ -215,10 +294,20 @@ func (c *Client) Do(req *Request) (*Response, error) {
 		if usingCache && (err.(net.Error).Timeout() || strings.Contains(err.Error(), "no route to host")) {
 			log.Debugf("got timeout using cached addr %s, will refresh cache entry", resolvedHostPort)
 			c.cache.Delete(hostPort)
-			resolvedHostPort, err = c.resolveServiceInArchimedes(hostPort)
-			if err != nil {
-				panic(err)
+
+			for i := 0; i < maxTries; i++ {
+				resolvedHostPort, found, err = c.ResolveServiceInArchimedes(hostPort)
+				if err != nil {
+					panic(err)
+				}
+
+				if found {
+					break
+				}
+
+				time.Sleep(time.Duration(1*(i+1)) * time.Second)
 			}
+
 			newUrl.Host = resolvedHostPort
 			req, err = originalHttp.NewRequest(req.Method, newUrl.String(), req.Body)
 			if err != nil {
@@ -233,16 +322,7 @@ func (c *Client) Do(req *Request) (*Response, error) {
 }
 
 // TODO ARCHIMEDES HTTP CLIENT CHANGED THIS METHOD
-// WARN this is not really thread safe for now
-func (c *Client) resolveServiceInArchimedes(hostPort string) (resolvedHostPort string, err error) {
-	if c.archimedesClient == nil {
-		c.Lock()
-		if c.archimedesClient == nil {
-			c.archimedesClient = archimedes.NewArchimedesClient("addr_unset")
-		}
-		c.Unlock()
-	}
-
+func (c *Client) ResolveServiceInArchimedes(hostPort string) (resolvedHostPort string, found bool, err error) {
 	host, rawPort, err := net.SplitHostPort(hostPort)
 	if err != nil {
 		log.Error("hostport: ", hostPort)
@@ -258,28 +338,42 @@ func (c *Client) resolveServiceInArchimedes(hostPort string) (resolvedHostPort s
 		panic(err)
 	}
 
-	c.RLock()
-	rHost, rPort, status := c.archimedesClient.Resolve(host, port, deploymentId, c.location, reqId.String())
-	c.RUnlock()
+	var (
+		rHost, rPort string
+		timedout     bool
+		status       int
+	)
+	for {
+		c.RLock()
+		rHost, rPort, status, timedout = c.archimedesClient.Resolve(host, port, deploymentId, c.location, reqId.String())
+		c.RUnlock()
+		if !timedout {
+			break
+		} else {
+			time.Sleep(2 * time.Second)
+		}
+	}
+
 	switch status {
 	case StatusSeeOther:
 
 	case StatusNotFound:
 		log.Debugf("could not resolve %s", hostPort)
-		return hostPort, nil
+		return hostPort, false, nil
 	case StatusOK:
+		log.Debugf("took %d to resolve %s", time.Since(start).Milliseconds(), reqId.String())
 	default:
-		return "", errors.New(
-			fmt.Sprintf("got status %d while resolving %s in archimedes (req %s took %f)", status, hostPort,
-				reqId.String(), time.Since(start).Seconds()))
+		return "", false,
+			errors.New(fmt.Sprintf("got status %d while resolving %s in archimedes (req %s took %f)",
+				status, hostPort, reqId.String(), time.Since(start).Seconds()))
 	}
 
 	resolvedHostPort = rHost + ":" + rPort
-	cacheEntry := &CacheEntry{Stale: false, Resolved: resolvedHostPort}
-	c.cache.Store(hostPort, cacheEntry)
-	go waitAndSetValueAsStale(cacheEntry)
+	entry := newCacheEntry(resolvedHostPort)
+	c.cache.Store(hostPort, entry)
+	go waitAndSetValueAsStale(entry)
 
-	return resolvedHostPort, err
+	return resolvedHostPort, true, nil
 }
 
 // Post issues a POST to the specified URL.
@@ -346,7 +440,7 @@ func PostForm(url string, data url.Values) (resp *Response, err error) {
 	return DefaultClient.PostForm(url, data)
 }
 
-func waitAndSetValueAsStale(entry *CacheEntry) {
+func waitAndSetValueAsStale(entry *cacheEntry) {
 	time.Sleep(CacheExpiringTime)
-	entry.Stale = true
+	entry.setStale(true)
 }

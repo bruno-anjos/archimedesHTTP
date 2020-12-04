@@ -9,5 +9,5 @@ require (
 )
 
 replace (
-	github.com/bruno-anjos/cloud-edge-deployment latest => ../cloud-edge-deployment
+	github.com/bruno-anjos/cloud-edge-deployment v0.0.1 => ../cloud-edge-deployment
 )
