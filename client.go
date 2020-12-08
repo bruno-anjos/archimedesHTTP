@@ -121,8 +121,11 @@ func Get(url string) (resp *Response, err error) {
 // InitArchimedesClient initializes the archimedes client with the starting archimedes server host, the port to the
 // archimedes server and the location where the user is at the moment.
 func (c *Client) InitArchimedesClient(host string, port int, location s2.LatLng) {
+	hostPort := host + ":" + strconv.Itoa(port)
+	log.Infof("Starting archimedes client with host %s", hostPort)
+
 	c.Lock()
-	c.archimedesClient = client.NewArchimedesClient(host + ":" + strconv.Itoa(port))
+	c.archimedesClient = client.NewArchimedesClient(hostPort)
 	c.location = s2.CellIDFromLatLng(location)
 	c.initialized = true
 
@@ -200,12 +203,12 @@ func (c *Client) refreshCachePeriodically() {
 
 func (c *Client) resetToFallbackPeriodically() {
 	fallbackTicker := time.NewTicker(ResetToFallbackTimeout)
-	log.Debug("setting up fallback reset")
+	log.Info("setting up fallback reset")
 
 	for {
 		<-fallbackTicker.C
 
-		log.Debugf("resetting to fallback")
+		log.Infof("resetting to fallback %s", c.fallbackAddr)
 		c.Lock()
 		c.archimedesClient.SetHostPort(c.fallbackAddr + ":" + strconv.Itoa(archimedes.Port))
 		c.Unlock()
@@ -263,22 +266,10 @@ func (c *Client) Do(req *Request) (*Response, error) {
 	}
 
 	oldUrl := req.URL
-	newUrl := url.URL{
-		Scheme:     oldUrl.Scheme,
-		Opaque:     oldUrl.Opaque,
-		User:       oldUrl.User,
-		Host:       resolvedHostPort,
-		Path:       oldUrl.Path,
-		RawPath:    oldUrl.RawPath,
-		ForceQuery: oldUrl.ForceQuery,
-		RawQuery:   oldUrl.RawQuery,
-		Fragment:   oldUrl.Fragment,
-	}
+	newUrl := *oldUrl
+	newUrl.Host = resolvedHostPort
 
-	req, err = originalHttp.NewRequest(req.Method, newUrl.String(), req.Body)
-	if err != nil {
-		panic(err)
-	}
+	req.URL = &newUrl
 
 	c.afterMiddlewares.Range(func(key, value interface{}) bool {
 		midId := key.(middlewaresMapKey)
@@ -309,11 +300,7 @@ func (c *Client) Do(req *Request) (*Response, error) {
 			}
 
 			newUrl.Host = resolvedHostPort
-			req, err = originalHttp.NewRequest(req.Method, newUrl.String(), req.Body)
-			if err != nil {
-				panic(err)
-			}
-
+			req.URL = &newUrl
 			resp, err = c.Client.Do(req)
 		}
 	}

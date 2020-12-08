@@ -4,8 +4,6 @@
     <list default="true" id="23cbb981-626e-44da-a165-dfbc16be9c38" name="Default Changelist" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/client.go" beforeDir="false" afterPath="$PROJECT_DIR$/client.go" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/go.mod" beforeDir="false" afterPath="$PROJECT_DIR$/go.mod" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/server.go" beforeDir="false" afterPath="$PROJECT_DIR$/server.go" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -51,10 +49,18 @@
     <integration-enabled>true</integration-enabled>
   </component>
   <component name="WindowStateProjectService">
-    <state x="777" y="-678" key="ANALYSIS_DLG_com.intellij.analysis.BaseAnalysisAction$1" timestamp="1604067200462">
+    <state x="777" y="-678" key="ANALYSIS_DLG_com.intellij.analysis.BaseAnalysisAction$1" timestamp="1607098146361">
       <screen x="66" y="-1080" width="1920" height="1080" />
     </state>
-    <state x="777" y="-678" key="ANALYSIS_DLG_com.intellij.analysis.BaseAnalysisAction$1/66.-1080.1920.1080/0.0.2048.1280@66.-1080.1920.1080" timestamp="1604067200462" />
+    <state x="777" y="-678" key="ANALYSIS_DLG_com.intellij.analysis.BaseAnalysisAction$1/66.-1080.1920.1080/0.0.2048.1280@66.-1080.1920.1080" timestamp="1607098146361" />
+    <state x="589" y="-943" key="CommitChangelistDialog2" timestamp="1606761480254">
+      <screen x="66" y="-1080" width="1920" height="1080" />
+    </state>
+    <state x="589" y="-943" key="CommitChangelistDialog2/66.-1080.1920.1080/0.0.2048.1280@66.-1080.1920.1080" timestamp="1606761480254" />
+    <state x="614" y="-790" key="IDE.errors.dialog" timestamp="1605798356507">
+      <screen x="66" y="-1080" width="1920" height="1080" />
+    </state>
+    <state x="614" y="-790" key="IDE.errors.dialog/66.-1080.1920.1080/0.0.2048.1280@66.-1080.1920.1080" timestamp="1605798356507" />
     <state x="535" y="-901" key="SettingsEditor" timestamp="1602238118946">
       <screen x="66" y="-1080" width="1920" height="1080" />
     </state>
@@ -63,13 +69,14 @@
       <screen x="66" y="-1080" width="1920" height="1080" />
     </state>
     <state x="839" y="-619" key="com.intellij.openapi.vcs.update.UpdateOrStatusOptionsDialogupdate-v2/66.-1080.1920.1080/0.0.2048.1280@66.-1080.1920.1080" timestamp="1603465665012" />
-    <state x="733" y="-785" width="586" height="490" key="find.popup" timestamp="1603986255090">
+    <state x="733" y="-785" width="586" height="490" key="find.popup" timestamp="1607441544367">
       <screen x="66" y="-1080" width="1920" height="1080" />
     </state>
-    <state x="733" y="-785" width="586" height="490" key="find.popup/66.-1080.1920.1080/0.0.2048.1280@66.-1080.1920.1080" timestamp="1603986255090" />
-    <state x="691" y="-839" width="670" height="676" key="search.everywhere.popup" timestamp="1602586269492">
+    <state x="711" y="350" width="626" height="581" key="find.popup/0.0.2048.1280@0.0.2048.1280" timestamp="1606737492296" />
+    <state x="733" y="-785" width="586" height="490" key="find.popup/66.-1080.1920.1080/0.0.2048.1280@66.-1080.1920.1080" timestamp="1607441544367" />
+    <state x="691" y="-839" width="670" height="676" key="search.everywhere.popup" timestamp="1607434086625">
       <screen x="66" y="-1080" width="1920" height="1080" />
     </state>
-    <state x="691" y="-839" width="670" height="676" key="search.everywhere.popup/66.-1080.1920.1080/0.0.2048.1280@66.-1080.1920.1080" timestamp="1602586269492" />
+    <state x="691" y="-839" width="670" height="676" key="search.everywhere.popup/66.-1080.1920.1080/0.0.2048.1280@66.-1080.1920.1080" timestamp="1607434086625" />
   </component>
 </project>
