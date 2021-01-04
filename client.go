@@ -261,8 +261,6 @@ func (c *Client) Do(req *Request) (*Response, error) {
 
 			time.Sleep(time.Duration(1*(i+1)) * time.Second)
 		}
-
-		log.Infof("resolved %s to %s in archimedes", hostPort, resolvedHostPort)
 	}
 
 	oldUrl := req.URL
@@ -316,6 +314,13 @@ func (c *Client) ResolveServiceInArchimedes(hostPort string) (resolvedHostPort s
 		panic(err)
 	}
 
+	ip := net.ParseIP(host)
+	if ip != nil {
+		resolvedHostPort = hostPort
+		found = true
+		return resolvedHostPort, found, nil
+	}
+
 	port := nat.Port(rawPort + "/tcp")
 
 	deploymentId := strings.Split(host, "-")[0]
@@ -332,7 +337,8 @@ func (c *Client) ResolveServiceInArchimedes(hostPort string) (resolvedHostPort s
 	)
 	for {
 		c.RLock()
-		rHost, rPort, status, timedout = c.archimedesClient.Resolve(host, port, deploymentId, c.location, reqId.String())
+		rHost, rPort, status, timedout = c.archimedesClient.Resolve(host, port, deploymentId, c.location,
+			reqId.String())
 		c.RUnlock()
 		if !timedout {
 			break
@@ -345,7 +351,7 @@ func (c *Client) ResolveServiceInArchimedes(hostPort string) (resolvedHostPort s
 	case StatusSeeOther:
 
 	case StatusNotFound:
-		log.Debugf("could not resolve %s", hostPort)
+		log.Infof("could not resolve %s", hostPort)
 		return hostPort, false, nil
 	case StatusOK:
 		log.Debugf("took %d to resolve %s", time.Since(start).Milliseconds(), reqId.String())
@@ -356,6 +362,8 @@ func (c *Client) ResolveServiceInArchimedes(hostPort string) (resolvedHostPort s
 	}
 
 	resolvedHostPort = rHost + ":" + rPort
+	log.Infof("resolved %s to %s in archimedes", hostPort, resolvedHostPort)
+
 	entry := newCacheEntry(resolvedHostPort)
 	c.cache.Store(hostPort, entry)
 	go waitAndSetValueAsStale(entry)
