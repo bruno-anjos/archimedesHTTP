@@ -210,7 +210,7 @@ func (c *Client) resetToFallbackPeriodically() {
 
 		log.Infof("resetting to fallback %s", c.fallbackAddr)
 		c.Lock()
-		c.archimedesClient.SetHostPort(c.fallbackAddr + ":" + strconv.Itoa(archimedes.Port))
+		c.archimedesClient.ChangeArchimedesAddr(c.fallbackAddr + ":" + strconv.Itoa(archimedes.Port))
 		c.Unlock()
 	}
 }
@@ -249,17 +249,13 @@ func (c *Client) Do(req *Request) (*Response, error) {
 		log.Infof("resolved %s to %s using cache", hostPort, resolvedHostPort)
 		usingCache = true
 	} else {
-		for i := 0; i < maxTries; i++ {
-			resolvedHostPort, found, err = c.ResolveServiceInArchimedes(hostPort)
-			if err != nil {
-				panic(err)
-			}
+		resolvedHostPort, found, err = c.ResolveServiceInArchimedes(hostPort)
+		if err != nil {
+			panic(err)
+		}
 
-			if found {
-				break
-			}
-
-			time.Sleep(time.Duration(1*(i+1)) * time.Second)
+		if !found {
+			log.Infof("could not resolve %s", hostPort)
 		}
 	}
 
@@ -284,17 +280,13 @@ func (c *Client) Do(req *Request) (*Response, error) {
 			log.Debugf("got timeout using cached addr %s, will refresh cache entry", resolvedHostPort)
 			c.cache.Delete(hostPort)
 
-			for i := 0; i < maxTries; i++ {
-				resolvedHostPort, found, err = c.ResolveServiceInArchimedes(hostPort)
-				if err != nil {
-					panic(err)
-				}
+			resolvedHostPort, found, err = c.ResolveServiceInArchimedes(hostPort)
+			if err != nil {
+				panic(err)
+			}
 
-				if found {
-					break
-				}
-
-				time.Sleep(time.Duration(1*(i+1)) * time.Second)
+			if !found {
+				log.Infof("could not resolve %s", hostPort)
 			}
 
 			newUrl.Host = resolvedHostPort
@@ -349,9 +341,7 @@ func (c *Client) ResolveServiceInArchimedes(hostPort string) (resolvedHostPort s
 
 	switch status {
 	case StatusSeeOther:
-
 	case StatusNotFound:
-		log.Infof("could not resolve %s", hostPort)
 		return hostPort, false, nil
 	case StatusOK:
 		log.Debugf("took %d to resolve %s", time.Since(start).Milliseconds(), reqId.String())

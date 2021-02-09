@@ -84,8 +84,9 @@ func Serve(l net.Listener, handler originalHttp.Handler) error {
 		panic(fmt.Sprintf("no NODE_IP env variable"))
 	}
 
-	go client.NewDeployerClient(node + ":" + strconv.Itoa(deployer.Port)).
-		SendInstanceHeartbeatToDeployerPeriodically()
+	deplClient := client.NewDeployerClient()
+
+	go deplClient.SendInstanceHeartbeatToDeployerPeriodically(node + ":" + strconv.Itoa(deployer.Port))
 	srv := &originalHttp.Server{Handler: handler}
 	return srv.Serve(l)
 }
@@ -108,8 +109,9 @@ func ServeTLS(l net.Listener, handler originalHttp.Handler, certFile, keyFile st
 		panic(fmt.Sprintf("no NODE_IP env variable"))
 	}
 
-	go client.NewDeployerClient(node + ":" + strconv.Itoa(deployer.Port)).
-		SendInstanceHeartbeatToDeployerPeriodically()
+	deplClient := client.NewDeployerClient()
+
+	go deplClient.SendInstanceHeartbeatToDeployerPeriodically(node + ":" + strconv.Itoa(deployer.Port))
 	srv := &originalHttp.Server{Handler: handler}
 	return srv.ServeTLS(l, certFile, keyFile)
 }
@@ -128,8 +130,8 @@ func ListenAndServe(addr string, handler originalHttp.Handler) error {
 		panic(fmt.Sprintf("no NODE_IP env variable"))
 	}
 
-	go client.NewDeployerClient(node + ":" + strconv.Itoa(deployer.Port)).
-		SendInstanceHeartbeatToDeployerPeriodically()
+	deplClient := client.NewDeployerClient()
+	go deplClient.SendInstanceHeartbeatToDeployerPeriodically(node + ":" + strconv.Itoa(deployer.Port))
 	server := &originalHttp.Server{Addr: addr, Handler: handler}
 	return server.ListenAndServe()
 }
@@ -145,8 +147,8 @@ func ListenAndServeTLS(addr, certFile, keyFile string, handler originalHttp.Hand
 		panic(fmt.Sprintf("no NODE_IP env variable"))
 	}
 
-	go client.NewDeployerClient(node + ":" + strconv.Itoa(deployer.Port)).
-		SendInstanceHeartbeatToDeployerPeriodically()
+	deplClient := client.NewDeployerClient()
+	go deplClient.SendInstanceHeartbeatToDeployerPeriodically(node + ":" + strconv.Itoa(deployer.Port))
 	server := &originalHttp.Server{Addr: addr, Handler: handler}
 	return server.ListenAndServeTLS(certFile, keyFile)
 }

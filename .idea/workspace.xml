@@ -1,18 +1,32 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
+  <component name="AutoImportSettings">
+    <option name="autoReloadType" value="SELECTIVE" />
+  </component>
   <component name="ChangeListManager">
     <list default="true" id="23cbb981-626e-44da-a165-dfbc16be9c38" name="Default Changelist" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/client.go" beforeDir="false" afterPath="$PROJECT_DIR$/client.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/go.mod" beforeDir="false" afterPath="$PROJECT_DIR$/go.mod" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/go.sum" beforeDir="false" afterPath="$PROJECT_DIR$/go.sum" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/server.go" beforeDir="false" afterPath="$PROJECT_DIR$/server.go" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
     <option name="LAST_RESOLUTION" value="IGNORE" />
   </component>
-  <component name="GOROOT" path="/usr/local/Cellar/go/1.15/libexec" />
+  <component name="GOROOT" url="file:///usr/local/Cellar/go/1.15.6/libexec" />
   <component name="Git.Settings">
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+  </component>
+  <component name="GitSEFilterConfiguration">
+    <file-type-list>
+      <filtered-out-file-type name="LOCAL_BRANCH" />
+      <filtered-out-file-type name="REMOTE_BRANCH" />
+      <filtered-out-file-type name="TAG" />
+      <filtered-out-file-type name="COMMIT_BY_MESSAGE" />
+    </file-type-list>
   </component>
   <component name="GoLibraries">
     <option name="indexEntireGoPath" value="false" />
@@ -27,14 +41,16 @@
   </component>
   <component name="PropertiesComponent">
     <property name="ASKED_SHARE_PROJECT_CONFIGURATION_FILES" value="true" />
+    <property name="NewWatcherDialog.advanced.open" value="true" />
     <property name="RunOnceActivity.OpenProjectViewOnStart" value="true" />
+    <property name="RunOnceActivity.ShowReadmeOnStart" value="true" />
     <property name="WebServerToolWindowFactoryState" value="false" />
     <property name="go.import.settings.migrated" value="true" />
     <property name="go.sdk.automatically.set" value="true" />
     <property name="go.tried.to.enable.integration.vgo.integrator" value="true" />
     <property name="last_opened_file_path" value="$PROJECT_DIR$" />
     <property name="run.code.analysis.last.selected.profile" value="pProject Default" />
-    <property name="settings.editor.selected.configurable" value="preferences.pluginManager" />
+    <property name="settings.editor.selected.configurable" value="editor.preferences.fonts.default" />
   </component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
@@ -45,38 +61,29 @@
   <component name="TypeScriptGeneratedFilesManager">
     <option name="version" value="3" />
   </component>
+  <component name="Vcs.Log.History.Properties">
+    <option name="COLUMN_ID_ORDER">
+      <list>
+        <option value="Default.Root" />
+        <option value="Default.Author" />
+        <option value="Default.Date" />
+        <option value="Default.Subject" />
+      </list>
+    </option>
+  </component>
+  <component name="Vcs.Log.Tabs.Properties">
+    <option name="TAB_STATES">
+      <map>
+        <entry key="MAIN">
+          <value>
+            <State />
+          </value>
+        </entry>
+      </map>
+    </option>
+    <option name="oldMeFiltersMigrated" value="true" />
+  </component>
   <component name="VgoProject">
     <integration-enabled>true</integration-enabled>
-  </component>
-  <component name="WindowStateProjectService">
-    <state x="777" y="-678" key="ANALYSIS_DLG_com.intellij.analysis.BaseAnalysisAction$1" timestamp="1607098146361">
-      <screen x="66" y="-1080" width="1920" height="1080" />
-    </state>
-    <state x="777" y="-678" key="ANALYSIS_DLG_com.intellij.analysis.BaseAnalysisAction$1/66.-1080.1920.1080/0.0.2048.1280@66.-1080.1920.1080" timestamp="1607098146361" />
-    <state x="589" y="-943" key="CommitChangelistDialog2" timestamp="1606761480254">
-      <screen x="66" y="-1080" width="1920" height="1080" />
-    </state>
-    <state x="589" y="-943" key="CommitChangelistDialog2/66.-1080.1920.1080/0.0.2048.1280@66.-1080.1920.1080" timestamp="1606761480254" />
-    <state x="614" y="-790" key="IDE.errors.dialog" timestamp="1605798356507">
-      <screen x="66" y="-1080" width="1920" height="1080" />
-    </state>
-    <state x="614" y="-790" key="IDE.errors.dialog/66.-1080.1920.1080/0.0.2048.1280@66.-1080.1920.1080" timestamp="1605798356507" />
-    <state x="535" y="-901" key="SettingsEditor" timestamp="1602238118946">
-      <screen x="66" y="-1080" width="1920" height="1080" />
-    </state>
-    <state x="535" y="-901" key="SettingsEditor/66.-1080.1920.1080/0.0.2048.1280@66.-1080.1920.1080" timestamp="1602238118946" />
-    <state x="839" y="-619" key="com.intellij.openapi.vcs.update.UpdateOrStatusOptionsDialogupdate-v2" timestamp="1603465665012">
-      <screen x="66" y="-1080" width="1920" height="1080" />
-    </state>
-    <state x="839" y="-619" key="com.intellij.openapi.vcs.update.UpdateOrStatusOptionsDialogupdate-v2/66.-1080.1920.1080/0.0.2048.1280@66.-1080.1920.1080" timestamp="1603465665012" />
-    <state x="733" y="-785" width="586" height="490" key="find.popup" timestamp="1607441544367">
-      <screen x="66" y="-1080" width="1920" height="1080" />
-    </state>
-    <state x="711" y="350" width="626" height="581" key="find.popup/0.0.2048.1280@0.0.2048.1280" timestamp="1606737492296" />
-    <state x="733" y="-785" width="586" height="490" key="find.popup/66.-1080.1920.1080/0.0.2048.1280@66.-1080.1920.1080" timestamp="1607441544367" />
-    <state x="691" y="-839" width="670" height="676" key="search.everywhere.popup" timestamp="1607434086625">
-      <screen x="66" y="-1080" width="1920" height="1080" />
-    </state>
-    <state x="691" y="-839" width="670" height="676" key="search.everywhere.popup/66.-1080.1920.1080/0.0.2048.1280@66.-1080.1920.1080" timestamp="1607434086625" />
   </component>
 </project>
