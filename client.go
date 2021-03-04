@@ -72,7 +72,7 @@ const (
 	ResetToFallbackTimeout = 2 * time.Minute
 	FallbackEnvVar         = "FALLBACK_URL"
 
-	DefaultArchimedesPort = 50000
+	DefaultArchimedesPort = 1500
 )
 
 type (
@@ -216,7 +216,8 @@ func (c *Client) resetToFallbackPeriodically() {
 }
 
 const (
-	maxTries = 5
+	errConnRefused = "connection refused"
+	errTimeout     = "timeout"
 )
 
 func (c *Client) Do(req *Request) (*Response, error) {
@@ -274,9 +275,14 @@ func (c *Client) Do(req *Request) (*Response, error) {
 	})
 
 	resp, err := c.Client.Do(req)
-	switch err.(type) {
-	case net.Error:
-		if usingCache && (err.(net.Error).Timeout() || strings.Contains(err.Error(), "no route to host")) {
+	if err != nil && usingCache {
+		failed := false
+
+		if strings.Contains(err.Error(), errConnRefused) || strings.Contains(err.Error(), errTimeout) {
+			failed = true
+		}
+
+		if failed {
 			log.Debugf("got timeout using cached addr %s, will refresh cache entry", resolvedHostPort)
 			c.cache.Delete(hostPort)
 
@@ -292,6 +298,8 @@ func (c *Client) Do(req *Request) (*Response, error) {
 			newUrl.Host = resolvedHostPort
 			req.URL = &newUrl
 			resp, err = c.Client.Do(req)
+		} else {
+			log.Panic(err.Error())
 		}
 	}
 
