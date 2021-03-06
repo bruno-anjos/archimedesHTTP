@@ -343,6 +343,7 @@ func (c *Client) ResolveServiceInArchimedes(hostPort string) (resolvedHostPort s
 		if !timedout {
 			break
 		} else {
+			log.Warn("timed out on request to %s:%d for deployment %s", host, port.Port(), deploymentId)
 			time.Sleep(2 * time.Second)
 		}
 	}
