@@ -217,7 +217,8 @@ func (c *Client) resetToFallbackPeriodically() {
 
 const (
 	errConnRefused = "connection refused"
-	errTimeout     = "timeout"
+	errTimeout1    = "timeout"
+	errTimeout2    = "Timeout"
 )
 
 func (c *Client) Do(req *Request) (*Response, error) {
@@ -278,7 +279,8 @@ func (c *Client) Do(req *Request) (*Response, error) {
 	if err != nil && usingCache {
 		failed := false
 
-		if strings.Contains(err.Error(), errConnRefused) || strings.Contains(err.Error(), errTimeout) {
+		if strings.Contains(err.Error(), errConnRefused) || strings.Contains(err.Error(), errTimeout1) ||
+			strings.Contains(err.Error(), errTimeout2) {
 			failed = true
 		}
 
